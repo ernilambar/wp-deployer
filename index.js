@@ -11,16 +11,17 @@ import { waterfall } from 'async';
 
 const pkg = fs.readJsonSync( './package.json' );
 
+const awk = process.platform === 'win32'? 'gawk' : 'awk';
+const no_run_if_empty = process.platform !== 'darwin' ? '--no-run-if-empty ' : '';
+
 const wpDeployer = async () => {
 	console.log( `Processing...` );
 
-  const clearTrunk = (settings) => {
+  const clearDir = (dir, settings) => {
     return function(settings, callback) {
       console.log( `Clearing trunk.` );
 
-      // console.log( 'rm -fr '+settings.svnPath+"/trunk/*" );
-
-      exec( 'rm -fr '+settings.svnPath+"/trunk/*", function(){
+      exec( `rm -fr ${settings.svnPath}/trunk/*`, function(){
         callback( null, settings );
       });
     }
@@ -33,10 +34,6 @@ const wpDeployer = async () => {
       const checkoutUrl = `${ settings.url }${dir}/`;
       const targetPath = `${settings.svnPath}/${dir}`;
 
-      // console.log('checkoutUrl', checkoutUrl);
-
-      // console.log('command:', `svn co ${ checkoutUrl } ${ targetPath }` );
-
       exec(`svn co ${ checkoutUrl } ${ targetPath }`, function( error, stdout, stderr ) {
         if (error !== null) {
           console.error( 'Checkout of "' + settings.url + dir + '/" unsuccessful: ' + error);
@@ -48,6 +45,50 @@ const wpDeployer = async () => {
     }
   }
 
+  const copyDirectory = ( src_dir, dest_dir, callback ) => {
+    if ( src_dir.substr(-1) !== '/' ) {
+      src_dir = src_dir + '/';
+    }
+
+    fs.copySync(src_dir, dest_dir);
+    callback();
+  }
+
+  const copyBuild = (settings) => {
+    return function(settings, callback) {
+      console.log( `Copying build directory: ${settings.buildDir} to ${ settings.svnPath }/trunk/` );
+
+      copyDirectory( settings.buildDir, settings.svnPath + "/trunk/", function( ){
+        callback( null, settings );
+      } );
+    }
+  }
+
+  const addFiles = ( settings, callback ) => {
+    return function( settings, callback ){
+      let cmd = "svn status |" + awk + " '/^[?]/{print $2}' | xargs " + no_run_if_empty + "svn add;";
+      cmd += "svn status | " + awk + " '/^[!]/{print $2}' | xargs " + no_run_if_empty + "svn delete;";
+      exec(cmd,{cwd: settings.svnPath+"/trunk"}, function( error, stdout, stderr ){
+        callback( null, settings );
+      });
+    }
+  };
+
+  const commitToTrunk = ( settings, callback ) => {
+    return function( settings, callback ){
+      const trunkCommitMsg = "Committing " + settings.newVersion + " to trunk";
+
+      let cmd = 'svn commit --force-interactive --username="'+settings.username+'" -m "'+trunkCommitMsg+'"';
+
+      exec( cmd, {cwd:settings.svnPath+'/trunk'}, function(error, stdout, stderr) {
+        if (error !== null) {
+          console.error( chalk.red( 'Failed to commit to trunk: ' + error ) );
+        }
+        callback( null, settings );
+      });
+    }
+  };
+
 	const defaults = {
 		url: `https://svn.riouxsvn.com/${ pkg.name }/`,
     slug: `${ pkg.name }`,
@@ -56,6 +97,7 @@ const wpDeployer = async () => {
 		buildDir: 'dist',
 		assetsDir: '.wordpress-org',
     tmpDir: '/tmp/',
+    newVersion: pkg.version,
 	};
 
 	let settings = merge( defaults, pkg.hasOwnProperty( 'wpDeployer' ) ? pkg.wpDeployer : {} );
@@ -93,12 +135,15 @@ const wpDeployer = async () => {
     function( callback ) {
       callback( null, settings );
     },
-    clearTrunk(settings ),
+    clearDir( 'trunk', settings ),
     checkoutDir( 'trunk', settings ),
+    copyBuild( settings ),
+    addFiles( settings ),
+    commitToTrunk( settings ),
   ];
 
-  waterfall( steps, function (err, result){
-    console.log( chalk.green( `Deployed successfully.` ) );
+  waterfall( steps, function ( err, result ) {
+    console.log( chalk.green( 'Deployed successfully.' ) );
   });
 };
 
