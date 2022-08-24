@@ -25,8 +25,11 @@
   },
   "homepage": "https://github.com/ernilambar/wp-deployer#readme",
   "dependencies": {
+    "async": "^3.2.4",
     "chalk": "^5.0.1",
-    "fs-extra": "^10.1.0"
+    "fs-extra": "^10.1.0",
+    "inquirer": "^9.1.0",
+    "just-merge": "^3.1.1"
   },
   "devDependencies": {
     "@wordpress/eslint-plugin": "^12.9.0",
