@@ -1,0 +1,38 @@
+{
+  "name": "wp-deployer",
+  "version": "1.0.0",
+  "description": "Deploy WP plugin to the dot org repo.",
+  "main": "index.js",
+  "type": "module",
+  "bin": "./index.js",
+  "scripts": {
+    "eslint": "eslint --quiet .",
+    "eslint:fix": "eslint --quiet --fix ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ernilambar/wp-deployer.git"
+  },
+  "keywords": [
+    "WordPress",
+    "plugin",
+    "deploy"
+  ],
+  "author": "Nilambar Sharma <nilambar@outlook.com> (https://www.nilambar.net/)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ernilambar/wp-deployer/issues"
+  },
+  "homepage": "https://github.com/ernilambar/wp-deployer#readme",
+  "dependencies": {
+    "async": "^3.2.4",
+    "chalk": "^5.0.1",
+    "fs-extra": "^10.1.0",
+    "inquirer": "^9.1.0",
+    "just-merge": "^3.1.1"
+  },
+  "devDependencies": {
+    "@wordpress/eslint-plugin": "^12.9.0",
+    "eslint": "^8.21.0"
+  }
+}
