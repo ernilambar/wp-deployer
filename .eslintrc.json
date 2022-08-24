@@ -1,0 +1,18 @@
+{
+  "env": {
+    "node": true
+  },
+  "extends": ["plugin:@wordpress/eslint-plugin/esnext"],
+  "parserOptions": {
+    "requireConfigFile": false
+  },
+  "globals": {
+    "__basedir": true,
+    "jQuery": true
+  },
+  "rules": {
+    "no-console": "warn",
+    "no-alert": "error",
+    "vars-on-top": "warn"
+  }
+}
