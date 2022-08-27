@@ -6,8 +6,8 @@
   "type": "module",
   "bin": "./index.js",
   "scripts": {
-    "eslint": "eslint --quiet .",
-    "eslint:fix": "eslint --quiet --fix ."
+    "lint": "standard",
+    "lint:fix": "standard --fix"
   },
   "repository": {
     "type": "git",
@@ -32,7 +32,6 @@
     "just-merge": "^3.1.1"
   },
   "devDependencies": {
-    "@wordpress/eslint-plugin": "^12.9.0",
-    "eslint": "^8.21.0"
+    "standard": "^17.0.0"
   }
 }
