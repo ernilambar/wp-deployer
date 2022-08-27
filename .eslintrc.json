@@ -13,6 +13,7 @@
   "rules": {
     "no-console": "warn",
     "no-alert": "error",
+    "no-unused-vars": "warn",
     "vars-on-top": "warn"
   }
 }
