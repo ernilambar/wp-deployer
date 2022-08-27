@@ -7,7 +7,7 @@ import inquirer from 'inquirer'
 import merge from 'just-merge'
 import { exec } from 'child_process'
 
-import { waterfall } from 'async'
+import { waterfall, series } from 'async'
 
 const pkg = fs.readJsonSync('./package.json')
 
@@ -146,6 +146,44 @@ const wpDeployer = async () => {
   // 	process.exit();
   // }
 
+  const fnFirst = (callback) => {
+    console.log('first...')
+    callback(null)
+  }
+
+  const fnSecond = (callback) => {
+    console.log('second')
+    const er = false
+
+    if (er === false) {
+      return callback(null)
+    }
+    throw new Error('two ma error ayo')
+  }
+
+  const fnThird = (callback) => {
+    console.log('third...')
+    callback(null)
+  }
+
+  const testFunction = async () => {
+    series([
+      fnFirst,
+      fnSecond,
+      fnThird
+    ],
+    function (err, results) {
+      if (err) {
+        console.error(chalk.red(err.message))
+        return
+      }
+
+      console.log(chalk.green('Deployed successfully.'))
+    })
+  }
+
+  testFunction().catch(err => console.error(chalk.red(`Error: ${err.message}`)))
+
   const steps = [
     function (callback) {
       callback(null, settings)
@@ -158,9 +196,9 @@ const wpDeployer = async () => {
     commitTag(settings)
   ]
 
-  waterfall(steps, function (err, result) {
-    console.log(chalk.green('Deployed successfully.'))
-  })
+  // waterfall(steps, function (err, result) {
+  //   console.log(chalk.green('Deployed successfully.'))
+  // })
 }
 
 wpDeployer()
