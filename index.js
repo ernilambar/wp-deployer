@@ -17,7 +17,7 @@ const no_run_if_empty = process.platform !== 'darwin' ? '--no-run-if-empty ' : '
 const wpDeployer = async () => {
 	console.log( `Processing...` );
 
-  const clearDir = (dir, settings) => {
+  const clearTrunk = (settings) => {
     return function(settings, callback) {
       console.log( `Clearing trunk.` );
 
@@ -71,13 +71,14 @@ const wpDeployer = async () => {
 
   const addFiles = ( settings, callback ) => {
     return function( settings, callback ){
-      let cmd = "svn status |" + awk + " '/^[?]/{print $2}' | xargs " + no_run_if_empty + "svn add;";
+      let cmd = "svn resolve --accept working -R . && svn status |" + awk + " '/^[?]/{print $2}' | xargs " + no_run_if_empty + "svn add;";
       cmd += "svn status | " + awk + " '/^[!]/{print $2}' | xargs " + no_run_if_empty + "svn delete;";
 
-      cms = 'svn status';
-      exec(cmd,{cwd: settings.svnPath+"/trunk"}, function( error, stdout, stderr ){
+      // const cmd = 'svn status';
+      // console.log( 'settings.svnPath:', settings.svnPath + "/trunk" );
+      exec(cmd,{cwd: settings.svnPath + "/trunk" }, function( error, stdout, stderr ){
         console.log('error', error);
-        console.log('stdout', stdout);
+        console.log(stdout);
         console.log('stderr', stderr);
 
         callback( null, settings );
@@ -146,11 +147,11 @@ const wpDeployer = async () => {
     function( callback ) {
       callback( null, settings );
     },
-    clearDir( 'trunk', settings ),
     checkoutDir( 'trunk', settings ),
+    clearTrunk( settings ),
     copyBuild( settings ),
     addFiles( settings ),
-    // commitToTrunk( settings ),
+    commitToTrunk( settings ),
   ];
 
   waterfall( steps, function ( err, result ) {
