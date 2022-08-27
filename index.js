@@ -21,7 +21,12 @@ const wpDeployer = async () => {
     return function(settings, callback) {
       console.log( `Clearing trunk.` );
 
-      exec( `rm -fr ${settings.svnPath}/trunk/*`, function(){
+      console.log('Running:', `rm -fr ${settings.svnPath}/trunk/*` );
+
+      exec( `rm -fr ${settings.svnPath}/trunk/*`, function( error, stdout, stderr ){
+        console.log('error', error);
+        console.log('stdout', stdout);
+        console.log('stderr', stderr);
         callback( null, settings );
       });
     }
@@ -68,7 +73,13 @@ const wpDeployer = async () => {
     return function( settings, callback ){
       let cmd = "svn status |" + awk + " '/^[?]/{print $2}' | xargs " + no_run_if_empty + "svn add;";
       cmd += "svn status | " + awk + " '/^[!]/{print $2}' | xargs " + no_run_if_empty + "svn delete;";
+
+      cms = 'svn status';
       exec(cmd,{cwd: settings.svnPath+"/trunk"}, function( error, stdout, stderr ){
+        console.log('error', error);
+        console.log('stdout', stdout);
+        console.log('stderr', stderr);
+
         callback( null, settings );
       });
     }
@@ -139,7 +150,7 @@ const wpDeployer = async () => {
     checkoutDir( 'trunk', settings ),
     copyBuild( settings ),
     addFiles( settings ),
-    commitToTrunk( settings ),
+    // commitToTrunk( settings ),
   ];
 
   waterfall( steps, function ( err, result ) {
