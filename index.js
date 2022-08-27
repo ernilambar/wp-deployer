@@ -12,7 +12,7 @@ import { waterfall } from 'async';
 const pkg = fs.readJsonSync( './package.json' );
 
 const awk = process.platform === 'win32' ? 'gawk' : 'awk';
-const no_run_if_empty = process.platform !== 'darwin' ? '--no-run-if-empty ' : '';
+const noRunIfEmpty = process.platform !== 'darwin' ? '--no-run-if-empty ' : '';
 
 const wpDeployer = async () => {
 	console.log( `Processing...` );
@@ -21,12 +21,7 @@ const wpDeployer = async () => {
 		return function( settings, callback ) {
 			console.log( `Clearing trunk.` );
 
-			console.log( 'Running:', `rm -fr ${ settings.svnPath }/trunk/*` );
-
 			exec( `rm -fr ${ settings.svnPath }/trunk/*`, function( error, stdout, stderr ) {
-				console.log( 'error', error );
-				console.log( 'stdout', stdout );
-				console.log( 'stderr', stderr );
 				callback( null, settings );
 			} );
 		};
@@ -50,12 +45,12 @@ const wpDeployer = async () => {
 		};
 	};
 
-	const copyDirectory = ( src_dir, dest_dir, callback ) => {
-		if ( src_dir.substr( -1 ) !== '/' ) {
-			src_dir = src_dir + '/';
+	const copyDirectory = ( srcDir, destDir, callback ) => {
+		if ( srcDir.substr( -1 ) !== '/' ) {
+			srcDir = srcDir + '/';
 		}
 
-		fs.copySync( src_dir, dest_dir );
+		fs.copySync( srcDir, destDir );
 		callback();
 	};
 
@@ -71,14 +66,10 @@ const wpDeployer = async () => {
 
 	const addFiles = ( settings, callback ) => {
 		return function( settings, callback ) {
-			let cmd = 'svn resolve --accept working -R . && svn status |' + awk + " '/^[?]/{print $2}' | xargs " + no_run_if_empty + 'svn add;';
-			cmd += 'svn status | ' + awk + " '/^[!]/{print $2}' | xargs " + no_run_if_empty + 'svn delete;';
+			let cmd = 'svn resolve --accept working -R . && svn status |' + awk + " '/^[?]/{print $2}' | xargs " + noRunIfEmpty + 'svn add;';
+			cmd += 'svn status | ' + awk + " '/^[!]/{print $2}' | xargs " + noRunIfEmpty + 'svn delete;';
 
 			exec( cmd, { cwd: settings.svnPath + '/trunk' }, function( error, stdout, stderr ) {
-				// console.log('error', error);
-				// console.log(stdout);
-				// console.log('stderr', stderr);
-
 				callback( null, settings );
 			} );
 		};
