@@ -35,6 +35,16 @@ const wpDeployer = async () => {
     }
   }
 
+  const clearTheme = (settings) => {
+    return function (settings, callback) {
+      console.log('Clearing theme.')
+
+      exec(`rm -fr ${settings.svnPath}/${settings.newVersion}/*`, function (error, stdout, stderr) {
+        callback(null, settings)
+      })
+    }
+  }
+
   const checkoutDir = (dir, settings) => {
     return function (settings, callback) {
       console.log(`Checking out ${settings.url}${dir}/...`)
@@ -45,6 +55,24 @@ const wpDeployer = async () => {
       exec(`svn co --force-interactive --username=${settings.username} ${checkoutUrl} ${targetPath}`, { maxBuffer: settings.maxBuffer }, function (error, stdout, stderr) {
         if (error !== null) {
           console.error(`Checkout of ${settings.url}${dir}/ unsuccessful: ${error}`)
+        } else {
+          console.log('Check out complete.')
+        }
+        callback(null, settings)
+      })
+    }
+  }
+
+  const checkoutTheme = (settings) => {
+    return function (settings, callback) {
+      console.log(`Checking out ${settings.url}...`)
+
+      const checkoutUrl = `${settings.url}/`
+      const targetPath = `${settings.svnPath}/`
+
+      exec(`svn co --force-interactive --username=${settings.username} ${checkoutUrl} ${targetPath}`, { maxBuffer: settings.maxBuffer }, function (error, stdout, stderr) {
+        if (error !== null) {
+          console.error(`Checkout of ${settings.url}/ unsuccessful: ${error}`)
         } else {
           console.log('Check out complete.')
         }
@@ -72,6 +100,16 @@ const wpDeployer = async () => {
     }
   }
 
+  const copyTheme = (settings) => {
+    return function (settings, callback) {
+      console.log(`Copying build directory: ${settings.buildDir} to ${settings.svnPath}/${settings.newVersion}/`)
+
+      copyDirectory(settings.buildDir, `${settings.svnPath}/${settings.newVersion}/`, function () {
+        callback(null, settings)
+      })
+    }
+  }
+
   const copyAssets = (settings) => {
     return function (settings, callback) {
       console.log(`Copying assets to ${settings.svnPath}/assets/`)
@@ -90,6 +128,19 @@ const wpDeployer = async () => {
       cmd += 'svn status | ' + awk + " '/^[!]/{print $2}' | xargs " + noRunIfEmpty + 'svn delete;'
 
       exec(cmd, { cwd: `${settings.svnPath}/trunk` }, function (error, stdout, stderr) {
+        callback(null, settings)
+      })
+    }
+  }
+
+  const addThemeFiles = (settings, callback) => {
+    return function (settings, callback) {
+      console.log('Adding theme files')
+
+      let cmd = 'svn resolve --accept working -R . && svn status |' + awk + " '/^[?]/{print $2}' | xargs " + noRunIfEmpty + 'svn add;'
+      cmd += 'svn status | ' + awk + " '/^[!]/{print $2}' | xargs " + noRunIfEmpty + 'svn delete;'
+
+      exec(cmd, { cwd: `${settings.svnPath}/${settings.newVersion}` }, function (error, stdout, stderr) {
         callback(null, settings)
       })
     }
@@ -138,6 +189,21 @@ const wpDeployer = async () => {
     }
   }
 
+  const commitTheme = (settings, callback) => {
+    return function (settings, callback) {
+      const commitMsg = 'Committing theme'
+
+      const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
+
+      exec(cmd, { cwd: `${settings.svnPath}/${settings.newVersion}` }, function (error, stdout, stderr) {
+        if (error !== null) {
+          console.error(chalk.red(`Failed to commit theme: ${error}`))
+        }
+        callback(null, settings)
+      })
+    }
+  }
+
   const commitTag = (settings, callback) => {
     return function (settings, callback) {
       const tagCommitMsg = `Tagging ${settings.newVersion}`
@@ -154,11 +220,28 @@ const wpDeployer = async () => {
     }
   }
 
+  const createThemeTag = (settings, callback) => {
+    return function (settings, callback) {
+      const commitMessage = `Creating tag ${settings.newVersion}`
+
+      console.log(commitMessage)
+
+      const cmd = 'svn copy ' + settings.url + settings.earlierVersion + '/ ' + settings.url + settings.newVersion + '/ ' + ' ' + ' --force-interactive --username="' + settings.username + '" -m "' + commitMessage + '"'
+      exec(cmd, { cwd: settings.svnpath }, function (error, stdout, stderr) {
+        if (error !== null) {
+          console.error(`Failed to create tag: ${error}`)
+        }
+        callback(null, settings)
+      })
+    }
+  }
+
   const defaults = {
-    url: `https://plugins.svn.wordpress.org/${pkg.name}/`,
+    url: '',
     slug: `${pkg.name}`,
     mainFile: `${pkg.name}.php`,
     username: '',
+    repoType: 'plugin',
     buildDir: 'dist',
     maxBuffer: 200 * 1024,
     deployTrunk: true,
@@ -166,6 +249,7 @@ const wpDeployer = async () => {
     deployAssets: false,
     assetsDir: '.wordpress-org',
     tmpDir: '/tmp/',
+    earlierVersion: '',
     newVersion: pkg.version
   }
 
@@ -177,29 +261,58 @@ const wpDeployer = async () => {
 
   settings.buildDir = settings.buildDir.replace(/\/$|$/, '/')
 
+  if ( ! settings.url ) {
+    if ( 'plugin' === settings.repoType ) {
+      settings.url = `https://plugins.svn.wordpress.org/${pkg.name}/`
+    } else if ( 'theme' === settings.repoType ) {
+      settings.url = `https://themes.svn.wordpress.org/${pkg.name}/`
+    }
+  }
+
   if (!settings.username) {
     console.error(chalk.red('Username is required.'))
     process.exit()
   }
 
-  const steps = [
-    function (callback) {
-      callback(null, settings)
-    },
-    settings.deployTrunk ? checkoutDir('trunk', settings) : null,
-    settings.deployTrunk ? clearTrunk(settings) : null,
-    settings.deployTrunk ? copyBuild(settings) : null,
-    settings.deployTrunk ? addFiles(settings) : null,
-    settings.deployTrunk ? commitToTrunk(settings) : null,
+  if (!settings.earlierVersion && 'theme' === settings.repoType) {
+    console.error(chalk.red('For repoType theme, earlierVersion is required.'))
+    process.exit()
+  }
 
-    settings.deployTag ? commitTag(settings) : null,
+  let steps = [];
 
-    settings.deployAssets ? checkoutDir('assets', settings) : null,
-    settings.deployAssets ? clearAssets(settings) : null,
-    settings.deployAssets ? copyAssets(settings) : null,
-    settings.deployAssets ? addAssets(settings) : null,
-    settings.deployAssets ? commitToAssets(settings) : null
-  ].filter(function (val) { return val !== null })
+  if ( 'plugin' === settings.repoType ) {
+    steps = [
+      function (callback) {
+        callback(null, settings)
+      },
+      settings.deployTrunk ? checkoutDir('trunk', settings) : null,
+      settings.deployTrunk ? clearTrunk(settings) : null,
+      settings.deployTrunk ? copyBuild(settings) : null,
+      settings.deployTrunk ? addFiles(settings) : null,
+      settings.deployTrunk ? commitToTrunk(settings) : null,
+
+      settings.deployTag ? commitTag(settings) : null,
+
+      settings.deployAssets ? checkoutDir('assets', settings) : null,
+      settings.deployAssets ? clearAssets(settings) : null,
+      settings.deployAssets ? copyAssets(settings) : null,
+      settings.deployAssets ? addAssets(settings) : null,
+      settings.deployAssets ? commitToAssets(settings) : null
+    ].filter(function (val) { return val !== null })
+  } else if ( 'theme' === settings.repoType ) {
+    steps = [
+      function (callback) {
+        callback(null, settings)
+      },
+      createThemeTag(settings),
+      checkoutDir(settings.newVersion, settings),
+      clearTheme(settings),
+      copyTheme(settings),
+      addThemeFiles(settings),
+      commitTheme(settings),
+    ].filter(function (val) { return val !== null })
+  }
 
   waterfall(steps, function (err, result) {
   })
