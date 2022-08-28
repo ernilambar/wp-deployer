@@ -144,7 +144,7 @@ const wpDeployer = async () => {
 
       console.log(tagCommitMsg)
 
-      const cmd = 'svn copy ' + settings.url + 'trunk/ ' + settings.url + 'tags/' + settings.newVersion + '/ ' + ' ' + ' --username="' + settings.username + '" -m "' + tagCommitMsg + '"'
+      const cmd = 'svn copy ' + settings.url + 'trunk/ ' + settings.url + 'tags/' + settings.newVersion + '/ ' + ' ' + ' --force-interactive --username="' + settings.username + '" -m "' + tagCommitMsg + '"'
       exec(cmd, { cwd: settings.svnpath }, function (error, stdout, stderr) {
         if (error !== null) {
           console.error(`Failed to commit tag: ${error}`)
