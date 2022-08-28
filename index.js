@@ -1,9 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'fs-extra'
-import path from 'path'
 import chalk from 'chalk'
-import inquirer from 'inquirer'
 import merge from 'just-merge'
 import { exec } from 'child_process'
 
@@ -15,7 +13,7 @@ const awk = process.platform === 'win32' ? 'gawk' : 'awk'
 const noRunIfEmpty = process.platform !== 'darwin' ? '--no-run-if-empty ' : ''
 
 const wpDeployer = async () => {
-  console.log('Processing...')
+  console.log(chalk.cyan('Processing...'))
 
   const clearTrunk = (settings) => {
     return function (settings, callback) {
@@ -39,14 +37,14 @@ const wpDeployer = async () => {
 
   const checkoutDir = (dir, settings) => {
     return function (settings, callback) {
-      console.log('Checking out ' + settings.url + dir + '/...')
+      console.log(`Checking out ${settings.url}${dir}/...`)
 
       const checkoutUrl = `${settings.url}${dir}/`
       const targetPath = `${settings.svnPath}/${dir}`
 
-      exec(`svn co ${checkoutUrl} ${targetPath}`, function (error, stdout, stderr) {
+      exec(`svn co --force-interactive --username=${settings.username} ${checkoutUrl} ${targetPath}`, { maxBuffer: settings.maxBuffer }, function (error, stdout, stderr) {
         if (error !== null) {
-          console.error('Checkout of "' + settings.url + dir + '/" unsuccessful: ' + error)
+          console.error(`Checkout of ${settings.url}${dir}/ unsuccessful: ${error}`)
         } else {
           console.log('Check out complete.')
         }
@@ -57,7 +55,7 @@ const wpDeployer = async () => {
 
   const copyDirectory = (srcDir, destDir, callback) => {
     if (srcDir.substr(-1) !== '/') {
-      srcDir = srcDir + '/'
+      srcDir = `${srcDir}/`
     }
 
     fs.copySync(srcDir, destDir)
@@ -68,7 +66,7 @@ const wpDeployer = async () => {
     return function (settings, callback) {
       console.log(`Copying build directory: ${settings.buildDir} to ${settings.svnPath}/trunk/`)
 
-      copyDirectory(settings.buildDir, settings.svnPath + '/trunk/', function () {
+      copyDirectory(settings.buildDir, `${settings.svnPath}/trunk/`, function () {
         callback(null, settings)
       })
     }
@@ -78,7 +76,7 @@ const wpDeployer = async () => {
     return function (settings, callback) {
       console.log(`Copying assets to ${settings.svnPath}/assets/`)
 
-      copyDirectory(settings.assetsDir, settings.svnPath + '/assets/', function () {
+      copyDirectory(settings.assetsDir, `${settings.svnPath}/assets/`, function () {
         callback(null, settings)
       })
     }
@@ -86,10 +84,12 @@ const wpDeployer = async () => {
 
   const addFiles = (settings, callback) => {
     return function (settings, callback) {
+      console.log('Adding files in trunk')
+
       let cmd = 'svn resolve --accept working -R . && svn status |' + awk + " '/^[?]/{print $2}' | xargs " + noRunIfEmpty + 'svn add;'
       cmd += 'svn status | ' + awk + " '/^[!]/{print $2}' | xargs " + noRunIfEmpty + 'svn delete;'
 
-      exec(cmd, { cwd: settings.svnPath + '/trunk' }, function (error, stdout, stderr) {
+      exec(cmd, { cwd: `${settings.svnPath}/trunk` }, function (error, stdout, stderr) {
         callback(null, settings)
       })
     }
@@ -97,14 +97,12 @@ const wpDeployer = async () => {
 
   const addAssets = (settings, callback) => {
     return function (settings, callback) {
+      console.log('Adding assets')
+
       let cmd = 'svn resolve --accept working -R . && svn status |' + awk + " '/^[?]/{print $2}' | xargs " + noRunIfEmpty + 'svn add;'
       cmd += 'svn status | ' + awk + " '/^[!]/{print $2}' | xargs " + noRunIfEmpty + 'svn delete;'
 
-      exec(cmd, { cwd: settings.svnPath + '/assets' }, function (error, stdout, stderr) {
-        // console.log( 'error', error );
-        // console.log( 'stdout', stdout );
-        // console.log( 'stderr', stderr );
-
+      exec(cmd, { cwd: `${settings.svnPath}/assets` }, function (error, stdout, stderr) {
         callback(null, settings)
       })
     }
@@ -112,13 +110,13 @@ const wpDeployer = async () => {
 
   const commitToTrunk = (settings, callback) => {
     return function (settings, callback) {
-      const commitMsg = 'Committing ' + settings.newVersion + ' to trunk'
+      const commitMsg = `Committing ${settings.newVersion} to trunk`
 
       const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
 
-      exec(cmd, { cwd: settings.svnPath + '/trunk' }, function (error, stdout, stderr) {
+      exec(cmd, { cwd: `${settings.svnPath}/trunk` }, function (error, stdout, stderr) {
         if (error !== null) {
-          console.error(chalk.red('Failed to commit to trunk: ' + error))
+          console.error(chalk.red(`Failed to commit to trunk: ${error}`))
         }
         callback(null, settings)
       })
@@ -131,9 +129,9 @@ const wpDeployer = async () => {
 
       const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
 
-      exec(cmd, { cwd: settings.svnPath + '/assets' }, function (error, stdout, stderr) {
+      exec(cmd, { cwd: `${settings.svnPath}/assets` }, function (error, stdout, stderr) {
         if (error !== null) {
-          console.error(chalk.red('Failed to commit to assets: ' + error))
+          console.error(chalk.red(`Failed to commit to assets: ${error}`))
         }
         callback(null, settings)
       })
@@ -142,14 +140,14 @@ const wpDeployer = async () => {
 
   const commitTag = (settings, callback) => {
     return function (settings, callback) {
-      const tagCommitMsg = 'Tagging ' + settings.newVersion
+      const tagCommitMsg = `Tagging ${settings.newVersion}`
 
-      console.log(tagCommitMsg + '\n')
+      console.log(tagCommitMsg)
 
       const cmd = 'svn copy ' + settings.url + 'trunk/ ' + settings.url + 'tags/' + settings.newVersion + '/ ' + ' ' + ' --username="' + settings.username + '" -m "' + tagCommitMsg + '"'
       exec(cmd, { cwd: settings.svnpath }, function (error, stdout, stderr) {
         if (error !== null) {
-          console.error('Failed to commit tag: ' + error)
+          console.error(`Failed to commit tag: ${error}`)
         }
         callback(null, settings)
       })
@@ -157,17 +155,21 @@ const wpDeployer = async () => {
   }
 
   const defaults = {
-    url: `https://svn.riouxsvn.com/${pkg.name}/`,
+    url: `https://plugins.svn.wordpress.org/${pkg.name}/`,
     slug: `${pkg.name}`,
     mainFile: `${pkg.name}.php`,
     username: '',
     buildDir: 'dist',
+    maxBuffer: 200 * 1024,
+    deployTrunk: true,
+    deployTag: true,
+    deployAssets: false,
     assetsDir: '.wordpress-org',
     tmpDir: '/tmp/',
     newVersion: pkg.version
   }
 
-  let settings = merge(defaults, pkg.hasOwnProperty('wpDeployer') ? pkg.wpDeployer : {})
+  let settings = merge(defaults, Object.prototype.hasOwnProperty.call(pkg, 'wpDeployer') ? pkg.wpDeployer : {})
 
   settings = merge(settings, {
     svnPath: settings.tmpDir.replace(/\/$|$/, '/') + settings.slug
@@ -180,43 +182,26 @@ const wpDeployer = async () => {
     process.exit()
   }
 
-  // const password = ( await inquirer.prompt( [
-  // 	{
-  // 		type: 'password',
-  // 		name: 'password',
-  // 		default: 'password',
-  // 		message: 'Enter password:',
-  // 	},
-  // ] ) ).password;
-
-  // console.log( 'password:', password );
-
-  // if ( ! password ) {
-  // 	console.error( chalk.red( 'Password is required.' ) );
-  // 	process.exit();
-  // }
-
   const steps = [
     function (callback) {
       callback(null, settings)
     },
-    checkoutDir('trunk', settings),
-    clearTrunk(settings),
-    copyBuild(settings),
-    addFiles(settings),
-    commitToTrunk(settings),
-    commitTag(settings),
-    
-    checkoutDir('assets', settings),
-    clearAssets(settings),
-    copyAssets(settings),
-    addAssets(settings),
-    commitToAssets(settings),
-    
-  ]
+    settings.deployTrunk ? checkoutDir('trunk', settings) : null,
+    settings.deployTrunk ? clearTrunk(settings) : null,
+    settings.deployTrunk ? copyBuild(settings) : null,
+    settings.deployTrunk ? addFiles(settings) : null,
+    settings.deployTrunk ? commitToTrunk(settings) : null,
+
+    settings.deployTag ? commitTag(settings) : null,
+
+    settings.deployAssets ? checkoutDir('assets', settings) : null,
+    settings.deployAssets ? clearAssets(settings) : null,
+    settings.deployAssets ? copyAssets(settings) : null,
+    settings.deployAssets ? addAssets(settings) : null,
+    settings.deployAssets ? commitToAssets(settings) : null
+  ].filter(function (val) { return val !== null })
 
   waterfall(steps, function (err, result) {
-    console.log(chalk.green('Deployed successfully.'))
   })
 }
 
