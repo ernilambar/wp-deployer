@@ -27,6 +27,16 @@ const wpDeployer = async () => {
     }
   }
 
+  const clearAssets = (settings) => {
+    return function (settings, callback) {
+      console.log('Clearing assets.')
+
+      exec(`rm -fr ${settings.svnPath}/assets/*`, function (error, stdout, stderr) {
+        callback(null, settings)
+      })
+    }
+  }
+
   const checkoutDir = (dir, settings) => {
     return function (settings, callback) {
       console.log('Checking out ' + settings.url + dir + '/...')
@@ -64,6 +74,16 @@ const wpDeployer = async () => {
     }
   }
 
+  const copyAssets = (settings) => {
+    return function (settings, callback) {
+      console.log(`Copying assets to ${settings.svnPath}/assets/`)
+
+      copyDirectory(settings.assetsDir, settings.svnPath + '/assets/', function () {
+        callback(null, settings)
+      })
+    }
+  }
+
   const addFiles = (settings, callback) => {
     return function (settings, callback) {
       let cmd = 'svn resolve --accept working -R . && svn status |' + awk + " '/^[?]/{print $2}' | xargs " + noRunIfEmpty + 'svn add;'
@@ -75,15 +95,45 @@ const wpDeployer = async () => {
     }
   }
 
+  const addAssets = (settings, callback) => {
+    return function (settings, callback) {
+      let cmd = 'svn resolve --accept working -R . && svn status |' + awk + " '/^[?]/{print $2}' | xargs " + noRunIfEmpty + 'svn add;'
+      cmd += 'svn status | ' + awk + " '/^[!]/{print $2}' | xargs " + noRunIfEmpty + 'svn delete;'
+
+      exec(cmd, { cwd: settings.svnPath + '/assets' }, function (error, stdout, stderr) {
+        // console.log( 'error', error );
+        // console.log( 'stdout', stdout );
+        // console.log( 'stderr', stderr );
+
+        callback(null, settings)
+      })
+    }
+  }
+
   const commitToTrunk = (settings, callback) => {
     return function (settings, callback) {
-      const trunkCommitMsg = 'Committing ' + settings.newVersion + ' to trunk'
+      const commitMsg = 'Committing ' + settings.newVersion + ' to trunk'
 
-      const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + trunkCommitMsg + '"'
+      const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
 
       exec(cmd, { cwd: settings.svnPath + '/trunk' }, function (error, stdout, stderr) {
         if (error !== null) {
           console.error(chalk.red('Failed to commit to trunk: ' + error))
+        }
+        callback(null, settings)
+      })
+    }
+  }
+
+  const commitToAssets = (settings, callback) => {
+    return function (settings, callback) {
+      const commitMsg = 'Committing assets'
+
+      const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
+
+      exec(cmd, { cwd: settings.svnPath + '/assets' }, function (error, stdout, stderr) {
+        if (error !== null) {
+          console.error(chalk.red('Failed to commit to assets: ' + error))
         }
         callback(null, settings)
       })
@@ -155,7 +205,14 @@ const wpDeployer = async () => {
     copyBuild(settings),
     addFiles(settings),
     commitToTrunk(settings),
-    commitTag(settings)
+    commitTag(settings),
+    
+    checkoutDir('assets', settings),
+    clearAssets(settings),
+    copyAssets(settings),
+    addAssets(settings),
+    commitToAssets(settings),
+    
   ]
 
   waterfall(steps, function (err, result) {
