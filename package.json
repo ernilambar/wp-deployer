@@ -1,6 +1,6 @@
 {
   "name": "wp-deployer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Deploy WP plugin to the dot org repo.",
   "main": "index.js",
   "type": "module",
