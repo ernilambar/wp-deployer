@@ -4,7 +4,6 @@ import fs from 'fs-extra'
 import chalk from 'chalk'
 import merge from 'just-merge'
 import { exec } from 'child_process'
-
 import { waterfall } from 'async'
 
 const pkg = fs.readJsonSync('./package.json')
@@ -62,7 +61,7 @@ const wpDeployer = async () => {
       const checkoutUrl = `${settings.url}${dir}/`
       const targetPath = `${settings.svnPath}/${dir}`
 
-      exec(`svn co --force-interactive --username=${settings.username} ${checkoutUrl} ${targetPath}`, { maxBuffer: settings.maxBuffer }, function (error, stdout, stderr) {
+      exec(`svn co --force-interactive --username="${settings.username}" ${checkoutUrl} ${targetPath}`, { maxBuffer: settings.maxBuffer }, function (error, stdout, stderr) {
         if (error !== null) {
           console.error(`Checkout of ${settings.url}${dir}/ unsuccessful: ${error}`)
         } else {
@@ -80,7 +79,7 @@ const wpDeployer = async () => {
       const checkoutUrl = `${settings.url}/`
       const targetPath = `${settings.svnPath}/`
 
-      exec(`svn co --force-interactive --username=${settings.username} ${checkoutUrl} ${targetPath}`, { maxBuffer: settings.maxBuffer }, function (error, stdout, stderr) {
+      exec(`svn co --force-interactive --username="${settings.username}" ${checkoutUrl} ${targetPath}`, { maxBuffer: settings.maxBuffer }, function (error, stdout, stderr) {
         if (error !== null) {
           console.error(`Checkout of ${settings.url}/ unsuccessful: ${error}`)
         } else {
@@ -102,7 +101,7 @@ const wpDeployer = async () => {
 
   const copyBuild = (settings) => {
     return function (settings, callback) {
-      console.log(`Copying build directory: ${settings.buildDir} to ${settings.svnPath}/trunk/`)
+      console.log(`Copying build directory: ${settings.buildDir}`)
 
       copyDirectory(settings.buildDir, `${settings.svnPath}/trunk/`, function () {
         callback(null, settings)
@@ -112,7 +111,7 @@ const wpDeployer = async () => {
 
   const copyTheme = (settings) => {
     return function (settings, callback) {
-      console.log(`Copying build directory: ${settings.buildDir} to ${settings.svnPath}/${settings.newVersion}/`)
+      console.log(`Copying build directory: ${settings.buildDir}`)
 
       copyDirectory(settings.buildDir, `${settings.svnPath}/${settings.newVersion}/`, function () {
         callback(null, settings)
@@ -122,7 +121,7 @@ const wpDeployer = async () => {
 
   const copyAssets = (settings) => {
     return function (settings, callback) {
-      console.log(`Copying assets to ${settings.svnPath}/assets/`)
+      console.log('Copying assets')
 
       copyDirectory(settings.assetsDir, `${settings.svnPath}/assets/`, function () {
         callback(null, settings)
@@ -173,7 +172,7 @@ const wpDeployer = async () => {
     return function (settings, callback) {
       const commitMsg = `Committing ${settings.newVersion} to trunk`
 
-      const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
+      const cmd = `svn commit --force-interactive --username="${settings.username}" -m "${commitMsg}"`
 
       exec(cmd, { cwd: `${settings.svnPath}/trunk` }, function (error, stdout, stderr) {
         if (error !== null) {
@@ -188,7 +187,7 @@ const wpDeployer = async () => {
     return function (settings, callback) {
       const commitMsg = 'Committing assets'
 
-      const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
+      const cmd = `svn commit --force-interactive --username="${settings.username}" -m "${commitMsg}"`
 
       exec(cmd, { cwd: `${settings.svnPath}/assets` }, function (error, stdout, stderr) {
         if (error !== null) {
@@ -205,7 +204,7 @@ const wpDeployer = async () => {
 
       console.log(commitMsg)
 
-      const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
+      const cmd = `svn commit --force-interactive --username="${settings.username}" -m "${commitMsg}"`
 
       exec(cmd, { cwd: `${settings.svnPath}/${settings.newVersion}` }, function (error, stdout, stderr) {
         if (error !== null) {
@@ -236,7 +235,8 @@ const wpDeployer = async () => {
     return function (settings, callback) {
       console.log(`Creating tag ${settings.newVersion}`)
 
-      const cmd = 'svn copy ' + settings.earlierVersion + ' ' + settings.newVersion
+      const cmd = `svn copy ${settings.earlierVersion} ${settings.newVersion}`
+
       exec(cmd, { cwd: settings.svnPath }, function (error, stdout, stderr) {
         if (error !== null) {
           console.error(`Failed to create tag: ${error}`)
@@ -271,10 +271,10 @@ const wpDeployer = async () => {
 
   settings.buildDir = settings.buildDir.replace(/\/$|$/, '/')
 
-  if ( ! settings.url ) {
-    if ( 'plugin' === settings.repoType ) {
+  if (!settings.url) {
+    if (settings.repoType === 'plugin') {
       settings.url = `https://plugins.svn.wordpress.org/${pkg.name}/`
-    } else if ( 'theme' === settings.repoType ) {
+    } else if (settings.repoType === 'theme') {
       settings.url = `https://themes.svn.wordpress.org/${pkg.name}/`
     }
   }
@@ -284,14 +284,14 @@ const wpDeployer = async () => {
     process.exit()
   }
 
-  if (!settings.earlierVersion && 'theme' === settings.repoType) {
+  if (!settings.earlierVersion && settings.repoType === 'theme') {
     console.error(chalk.red('For repoType theme, earlierVersion is required.'))
     process.exit()
   }
 
-  let steps = [];
+  let steps = []
 
-  if ( 'plugin' === settings.repoType ) {
+  if (settings.repoType === 'plugin') {
     steps = [
       function (callback) {
         callback(null, settings)
@@ -310,7 +310,7 @@ const wpDeployer = async () => {
       settings.deployAssets ? addAssets(settings) : null,
       settings.deployAssets ? commitToAssets(settings) : null
     ].filter(function (val) { return val !== null })
-  } else if ( 'theme' === settings.repoType ) {
+  } else if (settings.repoType === 'theme') {
     steps = [
       function (callback) {
         callback(null, settings)
@@ -321,7 +321,7 @@ const wpDeployer = async () => {
       clearTheme(settings),
       copyTheme(settings),
       addThemeFiles(settings),
-      commitTheme(settings),
+      commitTheme(settings)
     ].filter(function (val) { return val !== null })
   }
 
