@@ -35,6 +35,16 @@ const wpDeployer = async () => {
     }
   }
 
+  const prepareThemeTmp = (settings) => {
+    return function (settings, callback) {
+      console.log('Preparing temporary folder.')
+
+      exec(`rm -fr ${settings.svnPath}/`, function (error, stdout, stderr) {
+        callback(null, settings)
+      })
+    }
+  }
+
   const clearTheme = (settings) => {
     return function (settings, callback) {
       console.log('Clearing theme.')
@@ -191,7 +201,9 @@ const wpDeployer = async () => {
 
   const commitTheme = (settings, callback) => {
     return function (settings, callback) {
-      const commitMsg = 'Committing theme'
+      const commitMsg = `Committing theme ${settings.newVersion}`
+
+      console.log(commitMsg)
 
       const cmd = 'svn commit --force-interactive --username="' + settings.username + '" -m "' + commitMsg + '"'
 
@@ -211,7 +223,7 @@ const wpDeployer = async () => {
       console.log(tagCommitMsg)
 
       const cmd = 'svn copy ' + settings.url + 'trunk/ ' + settings.url + 'tags/' + settings.newVersion + '/ ' + ' ' + ' --force-interactive --username="' + settings.username + '" -m "' + tagCommitMsg + '"'
-      exec(cmd, { cwd: settings.svnpath }, function (error, stdout, stderr) {
+      exec(cmd, { cwd: settings.svnPath }, function (error, stdout, stderr) {
         if (error !== null) {
           console.error(`Failed to commit tag: ${error}`)
         }
@@ -222,12 +234,10 @@ const wpDeployer = async () => {
 
   const createThemeTag = (settings, callback) => {
     return function (settings, callback) {
-      const commitMessage = `Creating tag ${settings.newVersion}`
+      console.log(`Creating tag ${settings.newVersion}`)
 
-      console.log(commitMessage)
-
-      const cmd = 'svn copy ' + settings.url + settings.earlierVersion + '/ ' + settings.url + settings.newVersion + '/ ' + ' ' + ' --force-interactive --username="' + settings.username + '" -m "' + commitMessage + '"'
-      exec(cmd, { cwd: settings.svnpath }, function (error, stdout, stderr) {
+      const cmd = 'svn copy ' + settings.earlierVersion + ' ' + settings.newVersion
+      exec(cmd, { cwd: settings.svnPath }, function (error, stdout, stderr) {
         if (error !== null) {
           console.error(`Failed to create tag: ${error}`)
         }
@@ -305,8 +315,9 @@ const wpDeployer = async () => {
       function (callback) {
         callback(null, settings)
       },
+      prepareThemeTmp(settings),
+      checkoutTheme(settings),
       createThemeTag(settings),
-      checkoutDir(settings.newVersion, settings),
       clearTheme(settings),
       copyTheme(settings),
       addThemeFiles(settings),
