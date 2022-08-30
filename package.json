@@ -1,6 +1,6 @@
 {
   "name": "wp-deployer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Deploy WordPress plugin and theme to the WordPress.org repo.",
   "main": "index.js",
   "type": "module",
