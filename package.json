@@ -8,7 +8,7 @@
   "scripts": {
     "lint": "standard",
     "lint:fix": "standard --fix",
-    "test": "node --test test/config.test.js test/steps.test.js"
+    "test": "node --test 'test/**/*.test.js'"
   },
   "repository": {
     "type": "git",
