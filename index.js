@@ -60,6 +60,10 @@ const wpDeployer = async () => {
     console.error(chalk.red(`Invalid SVN URL: ${errorMessage}`))
     return EXIT_CONFIG
   }
+  if (error === 'invalid_config') {
+    console.error(chalk.red(errorMessage || 'Invalid wpDeployer configuration.'))
+    return EXIT_CONFIG
+  }
 
   try {
     runPreflightSync(settings, { fs, awk })

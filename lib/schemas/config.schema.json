@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ernilambar/wp-deployer/lib/schemas/config.schema.json",
+  "title": "wp-deployer merged settings",
+  "description": "Schema for wp-deployer runtime configuration.",
+  "type": "object",
+  "required": [
+    "url",
+    "slug",
+    "mainFile",
+    "username",
+    "repoType",
+    "buildDir",
+    "maxBuffer",
+    "deployTrunk",
+    "deployTag",
+    "deployAssets",
+    "assetsDir",
+    "tmpDir",
+    "earlierVersion",
+    "newVersion",
+    "svnPath"
+  ],
+  "properties": {
+    "url": { "type": "string" },
+    "slug": { "type": "string", "minLength": 1 },
+    "mainFile": { "type": "string", "minLength": 1 },
+    "username": { "type": "string", "minLength": 1 },
+    "repoType": { "type": "string", "enum": ["plugin", "theme"] },
+    "buildDir": { "type": "string", "minLength": 1 },
+    "maxBuffer": { "type": "integer", "minimum": 1 },
+    "deployTrunk": { "type": "boolean" },
+    "deployTag": { "type": "boolean" },
+    "deployAssets": { "type": "boolean" },
+    "assetsDir": { "type": "string", "minLength": 1 },
+    "tmpDir": { "type": "string", "minLength": 1 },
+    "earlierVersion": { "type": "string" },
+    "newVersion": { "type": "string", "minLength": 1 },
+    "svnPath": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false,
+  "if": { "properties": { "repoType": { "const": "theme" } } },
+  "then": {
+    "properties": {
+      "earlierVersion": { "type": "string", "minLength": 1 }
+    }
+  }
+}

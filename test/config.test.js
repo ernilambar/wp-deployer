@@ -250,4 +250,24 @@ describe('resolveSettings', () => {
     const { error } = resolveSettings(pkg)
     assert.strictEqual(error, 'invalid_slug')
   })
+
+  it('returns invalid_config when merged settings fail JSON Schema (wrong type)', () => {
+    const pkg = {
+      ...basePkg,
+      wpDeployer: { username: 'jane', maxBuffer: 'not-a-number' }
+    }
+    const { error, errorMessage } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_config')
+    assert.ok(errorMessage && errorMessage.length > 0)
+  })
+
+  it('returns invalid_config when wpDeployer sets unknown properties (additionalProperties)', () => {
+    const pkg = {
+      ...basePkg,
+      wpDeployer: { username: 'jane', notARealOption: true }
+    }
+    const { error, errorMessage } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_config')
+    assert.ok(errorMessage && errorMessage.length > 0)
+  })
 })
