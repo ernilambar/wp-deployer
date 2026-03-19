@@ -24,6 +24,12 @@ describe('getDefaults', () => {
     const d = getDefaults(pkg)
     assert.strictEqual(d.mainFile, 'foo-bar.php')
   })
+
+  it('uses pkg.name verbatim as default slug (including scoped npm names)', () => {
+    const pkg = { name: '@acme/my-plugin', version: '1.0.0' }
+    const d = getDefaults(pkg)
+    assert.strictEqual(d.slug, '@acme/my-plugin')
+  })
 })
 
 describe('resolveSettings', () => {
@@ -66,6 +72,13 @@ describe('resolveSettings', () => {
     const pkg = { ...basePkg, wpDeployer: { username: 'jane', url: custom } }
     const { settings } = resolveSettings(pkg)
     assert.strictEqual(settings.url, custom)
+  })
+
+  it('returns invalid_svn_url when custom url is not a valid absolute URL', () => {
+    const pkg = { ...basePkg, wpDeployer: { username: 'jane', url: 'not-a-valid-url' } }
+    const { error, errorMessage } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_svn_url')
+    assert.ok(errorMessage && errorMessage.length > 0)
   })
 
   it('normalizes svnPath from tmpDir + slug (tmpDir with trailing slash)', () => {
@@ -121,6 +134,59 @@ describe('resolveSettings', () => {
     assert.strictEqual(settings.buildDir, 'out/')
     assert.strictEqual(settings.deployTrunk, false)
     assert.strictEqual(settings.deployAssets, true)
+    assert.strictEqual(
+      settings.url,
+      'https://plugins.svn.wordpress.org/custom-slug/',
+      'default plugin url must use slug, not pkg.name'
+    )
+    assert.strictEqual(settings.svnPath, '/tmp/custom-slug')
+    assert.strictEqual(settings.mainFile, 'custom-slug.php')
+  })
+
+  it('defaults plugin url from slug when slug differs from pkg.name', () => {
+    const pkg = {
+      name: 'my-company-plugin',
+      version: '1.0.0',
+      wpDeployer: { username: 'jane', slug: 'real-wp-slug' }
+    }
+    const { settings, error } = resolveSettings(pkg)
+    assert.strictEqual(error, null)
+    assert.strictEqual(settings.url, 'https://plugins.svn.wordpress.org/real-wp-slug/')
+    assert.strictEqual(settings.svnPath, '/tmp/real-wp-slug')
+    assert.strictEqual(settings.mainFile, 'real-wp-slug.php')
+  })
+
+  it('defaults theme url from slug when slug differs from pkg.name', () => {
+    const pkg = {
+      name: 'company-theme-pkg',
+      version: '2.0.0',
+      wpDeployer: {
+        username: 'jane',
+        repoType: 'theme',
+        earlierVersion: '1.0.0',
+        slug: 'theme-slug-on-org'
+      }
+    }
+    const { settings, error } = resolveSettings(pkg)
+    assert.strictEqual(error, null)
+    assert.strictEqual(settings.url, 'https://themes.svn.wordpress.org/theme-slug-on-org/')
+    assert.strictEqual(settings.svnPath, '/tmp/theme-slug-on-org')
+    assert.strictEqual(settings.mainFile, 'theme-slug-on-org.php')
+  })
+
+  it('keeps explicit mainFile when wpDeployer sets it (even if slug differs)', () => {
+    const pkg = {
+      name: 'npm-name',
+      version: '1.0.0',
+      wpDeployer: {
+        username: 'jane',
+        slug: 'wp-slug',
+        mainFile: 'plugin-bootstrap.php'
+      }
+    }
+    const { settings, error } = resolveSettings(pkg)
+    assert.strictEqual(error, null)
+    assert.strictEqual(settings.mainFile, 'plugin-bootstrap.php')
   })
 
   it('handles empty wpDeployer object', () => {
@@ -137,5 +203,51 @@ describe('resolveSettings', () => {
     assert.strictEqual(settings.username, 'alice')
     assert.strictEqual(settings.assetsDir, '.wordpress-org')
     assert.strictEqual(settings.maxBuffer, 200 * 1024)
+    assert.strictEqual(settings.mainFile, 'my-plugin.php', 'mainFile follows slug when not set in wpDeployer')
+  })
+
+  it('returns invalid_new_version when package version is not SVN-safe', () => {
+    const pkg = {
+      name: 'x',
+      version: '1.0.0/trunk',
+      wpDeployer: { username: 'jane' }
+    }
+    const { error, errorMessage } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_new_version')
+    assert.ok(errorMessage && errorMessage.length > 0)
+  })
+
+  it('returns invalid_earlier_version when theme earlierVersion is not SVN-safe', () => {
+    const pkg = {
+      ...basePkg,
+      version: '2.0.0',
+      wpDeployer: {
+        username: 'jane',
+        repoType: 'theme',
+        earlierVersion: '..'
+      }
+    }
+    const { error, errorMessage } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_earlier_version')
+    assert.ok(errorMessage && errorMessage.length > 0)
+  })
+
+  it('normalizes valid newVersion via validator (trim not applied; invalid if padded)', () => {
+    const pkg = { ...basePkg, version: '1.5.0', wpDeployer: { username: 'jane' } }
+    const { settings, error } = resolveSettings(pkg)
+    assert.strictEqual(error, null)
+    assert.strictEqual(settings.newVersion, '1.5.0')
+  })
+
+  it('returns invalid_slug when slug contains a slash', () => {
+    const pkg = { name: 'x', version: '1.0.0', wpDeployer: { slug: 'a/b', username: 'jane' } }
+    const { error } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_slug')
+  })
+
+  it('returns invalid_slug when default slug from scoped npm name is not a valid path segment', () => {
+    const pkg = { name: '@acme/my-plugin', version: '1.0.0', wpDeployer: { username: 'jane' } }
+    const { error } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_slug')
   })
 })
