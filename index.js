@@ -28,7 +28,7 @@ const exec = promisify(execCb)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const argv = minimist(process.argv.slice(2), {
-  boolean: ['help', 'version'],
+  boolean: ['help', 'version', 'assets'],
   alias: { h: 'help', v: 'version' }
 })
 
@@ -38,8 +38,9 @@ function printHelp () {
 Deploy a WordPress plugin or theme to WordPress.org SVN using wpDeployer in package.json.
 
 Options:
-  --help, -h     Show this message
-  --version, -v  Print wp-deployer version
+  --help, -h        Show this message
+  --version, -v     Print wp-deployer version
+  --assets          Deploy only the assets directory (plugin only; skips trunk and tag)
 `)
 }
 
@@ -72,7 +73,7 @@ process.on('SIGINT', () => {
 const wpDeployer = async () => {
   console.log(chalk.cyan('Processing...'))
 
-  const { settings, error, errorMessage } = resolveSettings(pkg)
+  let { settings, error, errorMessage } = resolveSettings(pkg)
   if (error === 'invalid_slug') {
     console.error(chalk.red(`Invalid slug: ${errorMessage}`))
     return EXIT_CONFIG
@@ -104,6 +105,19 @@ const wpDeployer = async () => {
   if (error === 'invalid_config') {
     console.error(chalk.red(errorMessage || 'Invalid wpDeployer configuration.'))
     return EXIT_CONFIG
+  }
+
+  if (argv.assets) {
+    if (settings.repoType !== 'plugin') {
+      console.error(chalk.red('--assets is only supported for plugins.'))
+      return EXIT_CONFIG
+    }
+    settings = {
+      ...settings,
+      deployTrunk: false,
+      deployTag: false,
+      deployAssets: true
+    }
   }
 
   try {

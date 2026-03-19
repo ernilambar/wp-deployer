@@ -35,4 +35,10 @@ describe('CLI flags', () => {
     assert.strictEqual(r.status, 0, r.stderr)
     assert.match(r.stdout, /Usage:\s*wp-deployer/i)
   })
+
+  it('--help documents --assets', () => {
+    const r = spawnSync(process.execPath, [indexJs, '--help'], { encoding: 'utf8' })
+    assert.strictEqual(r.status, 0, r.stderr)
+    assert.match(r.stdout, /--assets\b/)
+  })
 })

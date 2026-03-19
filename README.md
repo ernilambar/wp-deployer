@@ -18,12 +18,15 @@ Run from your project root (the directory that contains `package.json` with your
 npx wp-deployer
 ```
 
-Show CLI help or version:
+CLI sub-commands:
 
 ```sh
 npx wp-deployer --help
 npx wp-deployer --version
+npx wp-deployer --assets
 ```
+
+Use `--assets` when you only want to push the assets directory (e.g. screenshots, banner) to WordPress.org and skip trunk and tag deployment.
 
 Or add a script to `package.json` and run it:
 
