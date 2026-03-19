@@ -69,7 +69,7 @@ describe('resolveSettings', () => {
     assert.strictEqual(settings.url, 'https://themes.svn.wordpress.org/my-plugin/')
   })
 
-  it('ignores legacy wpDeployer.url (only wordpress.org SVN is supported)', () => {
+  it('returns invalid_config when wpDeployer sets url (not supported)', () => {
     const pkg = {
       ...basePkg,
       wpDeployer: {
@@ -77,9 +77,9 @@ describe('resolveSettings', () => {
         url: 'https://custom.svn.example.com/repo/'
       }
     }
-    const { settings, error } = resolveSettings(pkg)
-    assert.strictEqual(error, null)
-    assert.strictEqual(settings.url, 'https://plugins.svn.wordpress.org/my-plugin/')
+    const { error, errorMessage } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_config')
+    assert.ok(errorMessage && /wpDeployer\.url is not supported/.test(errorMessage))
   })
 
   it('normalizes svnPath from tmpDir + slug (tmpDir with trailing slash)', () => {
@@ -127,6 +127,7 @@ describe('resolveSettings', () => {
         slug: 'custom-slug',
         buildDir: 'out',
         deployTrunk: false,
+        deployTag: false,
         deployAssets: true
       }
     }
@@ -134,6 +135,7 @@ describe('resolveSettings', () => {
     assert.strictEqual(settings.slug, 'custom-slug')
     assert.strictEqual(settings.buildDir, 'out/')
     assert.strictEqual(settings.deployTrunk, false)
+    assert.strictEqual(settings.deployTag, false)
     assert.strictEqual(settings.deployAssets, true)
     assert.strictEqual(
       settings.url,
@@ -276,5 +278,15 @@ describe('resolveSettings', () => {
     const { error, errorMessage } = resolveSettings(pkg)
     assert.strictEqual(error, 'invalid_config')
     assert.ok(errorMessage && errorMessage.length > 0)
+  })
+
+  it('returns invalid_config when plugin has deployTag true and deployTrunk false', () => {
+    const pkg = {
+      ...basePkg,
+      wpDeployer: { username: 'jane', deployTrunk: false, deployTag: true }
+    }
+    const { error, errorMessage } = resolveSettings(pkg)
+    assert.strictEqual(error, 'invalid_config')
+    assert.ok(errorMessage && /deployTag cannot be true when deployTrunk is false/.test(errorMessage))
   })
 })
