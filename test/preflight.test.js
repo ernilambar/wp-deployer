@@ -46,7 +46,7 @@ describe('runPreflightSync', () => {
     }
     assert.doesNotThrow(() =>
       runPreflightSync(
-        { ...basePlugin, deployTrunk: false, deployTag: true },
+        { ...basePlugin, deployTrunk: false, deployTag: false },
         { fs, awk: 'awk' },
         { checkCommands: false }
       )

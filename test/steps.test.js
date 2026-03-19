@@ -106,31 +106,6 @@ describe('createPluginSteps', () => {
     ])
   })
 
-  it('plugin with deployTrunk false only runs commitTag with correct cwd', async () => {
-    const fs = createRecordingFs()
-    const exec = createRecordingExec()
-    const settings = { ...baseSettings, deployTrunk: false }
-    const steps = createPluginSteps(settings, helpersWith(exec, fs))
-    let s = settings
-    for (const step of steps) {
-      s = await step(s)
-    }
-    assert.strictEqual(steps.length, 1)
-    assert.strictEqual(exec.calls.length, 1)
-    assert.strictEqual(
-      exec.calls[0].cmd,
-      'svn copy ' +
-        settings.url +
-        'trunk/ ' +
-        settings.url +
-        'tags/1.0.0/ ' +
-        ' ' +
-        ' --force-interactive --username="jane" -m "Tagging 1.0.0"'
-    )
-    assert.strictEqual(exec.calls[0].opts.cwd, svnPath)
-    assert.strictEqual(fs.copies.length, 0)
-  })
-
   it('plugin with deployTag false omits tag step exec and cwd', async () => {
     const fs = createRecordingFs()
     const exec = createRecordingExec()

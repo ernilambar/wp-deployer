@@ -49,7 +49,7 @@ On a **shared** computer, review SVN’s credential storage and clear saved auth
 * **repoType**: Repo type; `plugin` or `theme`; Default: `plugin`.
 * **buildDir**: The directory where your theme or plugin exists as you want it on the repo. Default: `dist`
 * **deployTrunk**: Whether to deploy to trunk. This could be set to false to only commit the assets directory. Applies for `plugin` only; Default: `true`
-* **deployTag**: Whether to create a tag for this version from trunk. Set to `false` to skip tagging. Applies for `plugin` only; Default: `true`
+* **deployTag**: Whether to create a tag for this version from trunk after a trunk deploy. Set to `false` to skip tagging. If `true`, `deployTrunk` must also be `true` (tag-only deploys are not supported). Applies for `plugin` only; Default: `true`
 * **deployAssets**: Whether to deploy assets. Applies for `plugin` only; Default: `false`
 * **assetsDir**: The directory where your plugins assets are kept; Default: `.wordpress-org`
 * **tmpDir**: Parent directory for the SVN working copy (`slug` is appended). Default: system temp directory from `os.tmpdir()` (not hard-coded `/tmp`).
@@ -93,10 +93,6 @@ In `package.json`:
 }
 ```
 
-## Development
+## License
 
-Contributors: use **Node 22 or later** (see `engines` in `package.json`). If you use [nvm](https://github.com/nvm-sh/nvm), run `nvm use` in the project root to pick the version from `.nvmrc`.
-
-## Credits
-
-* [grunt-wp-deploy](https://github.com/stephenharris/grunt-wp-deploy)
+[MIT](https://opensource.org/licenses/MIT)
