@@ -30,7 +30,6 @@
   },
   "homepage": "https://github.com/ernilambar/wp-deployer#readme",
   "dependencies": {
-    "async": "^3.2.6",
     "chalk": "^5.6.2",
     "fs-extra": "^11.3.4",
     "just-merge": "^3.2.0"

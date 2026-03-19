@@ -7,12 +7,8 @@ const noopChalk = {
 }
 
 function mockExec () {
-  return function (cmd, opts, callback) {
-    if (typeof opts === 'function') {
-      opts(null, '', '')
-    } else {
-      callback(null, '', '')
-    }
+  return function (cmd, opts) {
+    return Promise.resolve({ stdout: '', stderr: '' })
   }
 }
 
@@ -52,57 +48,43 @@ describe('createPluginSteps', () => {
     })
   })
 
-  it('full plugin (deployTrunk + deployTag) has 7 steps', () => {
+  it('full plugin (deployTrunk + deployTag) has 6 steps', () => {
     const steps = createPluginSteps(baseSettings, helpers)
-    assert.strictEqual(steps.length, 7) // noop, checkout, clear, copy, add, commit trunk, commit tag
+    assert.strictEqual(steps.length, 6) // checkout, clear, copy, add, commit trunk, commit tag
   })
 
-  it('plugin with deployTrunk false has 2 steps (noop + commitTag)', () => {
+  it('plugin with deployTrunk false has 1 step (commitTag only)', () => {
     const settings = { ...baseSettings, deployTrunk: false }
     const steps = createPluginSteps(settings, helpers)
-    assert.strictEqual(steps.length, 2)
+    assert.strictEqual(steps.length, 1)
   })
 
-  it('plugin with deployTag false has 6 steps (no trunk commit tag)', () => {
+  it('plugin with deployTag false has 5 steps (no commit tag)', () => {
     const settings = { ...baseSettings, deployTag: false }
     const steps = createPluginSteps(settings, helpers)
-    assert.strictEqual(steps.length, 6)
+    assert.strictEqual(steps.length, 5)
   })
 
-  it('plugin with deployAssets true has 12 steps', () => {
+  it('plugin with deployAssets true has 11 steps', () => {
     const settings = { ...baseSettings, deployAssets: true }
     const steps = createPluginSteps(settings, helpers)
-    assert.strictEqual(steps.length, 12)
+    assert.strictEqual(steps.length, 11)
   })
 
-  it('first step passes settings to next (waterfall seed)', (t, done) => {
+  it('first step receives settings and returns settings', async () => {
     const steps = createPluginSteps(baseSettings, helpers)
-    const first = steps[0]
-    first((err, result) => {
-      assert.ifError(err)
-      assert.strictEqual(result, baseSettings)
-      done()
-    })
+    const result = await steps[0](baseSettings)
+    assert.strictEqual(result, baseSettings)
   })
 
-  it('all steps eventually call callback(null, settings)', (t, done) => {
+  it('all steps run in sequence and each returns settings', async () => {
     const steps = createPluginSteps(baseSettings, helpers)
-    let index = 0
-    const runNext = (err, settings) => {
-      assert.ifError(err)
-      if (index >= steps.length) {
-        done()
-        return
-      }
-      const step = steps[index]
-      index += 1
-      if (step.length === 1) {
-        step((e, s) => runNext(e, s))
-      } else {
-        step(settings, (e, s) => runNext(e, s))
-      }
+    let s = baseSettings
+    for (const step of steps) {
+      s = await step(s)
+      assert.strictEqual(s, baseSettings, 'each step should pass through same settings reference')
     }
-    runNext(null, baseSettings)
+    assert.strictEqual(s, baseSettings)
   })
 })
 
@@ -125,37 +107,24 @@ describe('createThemeSteps', () => {
     })
   })
 
-  it('theme always has 8 steps', () => {
+  it('theme always has 7 steps', () => {
     const steps = createThemeSteps(baseSettings, helpers)
-    assert.strictEqual(steps.length, 8)
+    assert.strictEqual(steps.length, 7)
   })
 
-  it('first step passes settings to next', (t, done) => {
+  it('first step receives settings and returns settings', async () => {
     const steps = createThemeSteps(baseSettings, helpers)
-    steps[0]((err, result) => {
-      assert.ifError(err)
-      assert.strictEqual(result, baseSettings)
-      done()
-    })
+    const result = await steps[0](baseSettings)
+    assert.strictEqual(result, baseSettings)
   })
 
-  it('all theme steps eventually call callback(null, settings)', (t, done) => {
+  it('all theme steps run in sequence and each returns settings', async () => {
     const steps = createThemeSteps(baseSettings, helpers)
-    let index = 0
-    const runNext = (err, settings) => {
-      assert.ifError(err)
-      if (index >= steps.length) {
-        done()
-        return
-      }
-      const step = steps[index]
-      index += 1
-      if (step.length === 1) {
-        step((e, s) => runNext(e, s))
-      } else {
-        step(settings, (e, s) => runNext(e, s))
-      }
+    let s = baseSettings
+    for (const step of steps) {
+      s = await step(s)
+      assert.strictEqual(s, baseSettings, 'each step should pass through same settings reference')
     }
-    runNext(null, baseSettings)
+    assert.strictEqual(s, baseSettings)
   })
 })

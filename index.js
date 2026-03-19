@@ -10,10 +10,12 @@
 
 import fs from 'fs-extra'
 import chalk from 'chalk'
-import { exec } from 'child_process'
-import { waterfall } from 'async'
+import { exec as execCb } from 'child_process'
+import { promisify } from 'util'
 import { resolveSettings } from './lib/config.js'
 import { createPluginSteps, createThemeSteps } from './lib/steps.js'
+
+const exec = promisify(execCb)
 
 const pkg = fs.readJsonSync('./package.json')
 
@@ -33,15 +35,19 @@ const wpDeployer = async () => {
     process.exit()
   }
 
-  // Build steps and run waterfall (same step sequence and callback contract as before)
   const helpers = { exec, chalk, fs, awk, noRunIfEmpty }
   const steps = settings.repoType === 'plugin'
     ? createPluginSteps(settings, helpers)
     : createThemeSteps(settings, helpers)
 
-  waterfall(steps, function (err, result) {
-    if (err) console.error(chalk.red(err))
-  })
+  try {
+    let s = settings
+    for (const step of steps) {
+      s = await step(s)
+    }
+  } catch (err) {
+    console.error(chalk.red(err))
+  }
 }
 
 wpDeployer()
