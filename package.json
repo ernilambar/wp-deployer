@@ -23,7 +23,7 @@
   "author": "Nilambar Sharma <nilambar@outlook.com> (https://www.nilambar.net/)",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "bugs": {
     "url": "https://github.com/ernilambar/wp-deployer/issues"

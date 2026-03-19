@@ -4,7 +4,7 @@ Deploy WordPress plugin and theme to the WordPress.org plugin and theme director
 
 ## Install
 
-Requires **Node 20 or later**.
+Requires **Node 22 or later**.
 
 ```sh
 npm install --save-dev wp-deployer
@@ -76,7 +76,7 @@ In `package.json`:
 
 ## Development
 
-Contributors: use **Node 20 or later** (see `engines` in `package.json`). If you use [nvm](https://github.com/nvm-sh/nvm), run `nvm use` in the project root to pick the version from `.nvmrc`.
+Contributors: use **Node 22 or later** (see `engines` in `package.json`). If you use [nvm](https://github.com/nvm-sh/nvm), run `nvm use` in the project root to pick the version from `.nvmrc`.
 
 ## Credits
 
