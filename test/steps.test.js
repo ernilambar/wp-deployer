@@ -1,29 +1,36 @@
+import path from 'node:path'
+import os from 'node:os'
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { createPluginSteps, createThemeSteps } from '../lib/steps.js'
 
-function mockExec () {
-  return function (cmd, opts) {
+function createRecordingExec () {
+  const calls = []
+  const fn = (cmd, opts) => {
+    calls.push({ cmd, opts: opts ?? {} })
     return Promise.resolve({ stdout: '', stderr: '' })
   }
+  fn.calls = calls
+  return fn
 }
 
-function mockFs () {
+function createRecordingFs () {
+  const copies = []
   return {
-    copySync (src, dest) {}
+    copySync (src, dest) {
+      copies.push({ src, dest })
+    },
+    copies
   }
 }
 
-const helpers = {
-  exec: mockExec(),
-  fs: mockFs(),
-  awk: 'awk',
-  noRunIfEmpty: ''
-}
+const awk = 'awk'
+const noRunIfEmpty = ''
 
 describe('createPluginSteps', () => {
+  const svnPath = path.join(os.tmpdir(), 'wp-deployer-test-plugin')
   const baseSettings = {
-    svnPath: '/tmp/my-plugin',
+    svnPath,
     url: 'https://plugins.svn.wordpress.org/my-plugin/',
     username: 'jane',
     buildDir: 'dist/',
@@ -35,51 +42,161 @@ describe('createPluginSteps', () => {
     deployAssets: false
   }
 
+  function helpersWith (exec, fs) {
+    return { exec, fs, awk, noRunIfEmpty }
+  }
+
   it('returns an array of functions', () => {
-    const steps = createPluginSteps(baseSettings, helpers)
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const steps = createPluginSteps(baseSettings, helpersWith(exec, fs))
     assert(Array.isArray(steps))
     steps.forEach((step, i) => {
       assert.strictEqual(typeof step, 'function', `step ${i} should be a function`)
     })
   })
 
-  it('full plugin (deployTrunk + deployTag) has 6 steps', () => {
-    const steps = createPluginSteps(baseSettings, helpers)
-    assert.strictEqual(steps.length, 6) // checkout, clear, copy, add, commit trunk, commit tag
-  })
-
-  it('plugin with deployTrunk false has 1 step (commitTag only)', () => {
-    const settings = { ...baseSettings, deployTrunk: false }
-    const steps = createPluginSteps(settings, helpers)
-    assert.strictEqual(steps.length, 1)
-  })
-
-  it('plugin with deployTag false has 5 steps (no commit tag)', () => {
-    const settings = { ...baseSettings, deployTag: false }
-    const steps = createPluginSteps(settings, helpers)
-    assert.strictEqual(steps.length, 5)
-  })
-
-  it('plugin with deployAssets true has 11 steps', () => {
-    const settings = { ...baseSettings, deployAssets: true }
-    const steps = createPluginSteps(settings, helpers)
-    assert.strictEqual(steps.length, 11)
-  })
-
-  it('first step receives settings and returns settings', async () => {
-    const steps = createPluginSteps(baseSettings, helpers)
-    const result = await steps[0](baseSettings)
-    assert.strictEqual(result, baseSettings)
-  })
-
-  it('all steps run in sequence and each returns settings', async () => {
-    const steps = createPluginSteps(baseSettings, helpers)
+  it('full plugin (deployTrunk + deployTag) runs expected exec commands and cwd', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const steps = createPluginSteps(baseSettings, helpersWith(exec, fs))
     let s = baseSettings
     for (const step of steps) {
       s = await step(s)
-      assert.strictEqual(s, baseSettings, 'each step should pass through same settings reference')
     }
-    assert.strictEqual(s, baseSettings)
+
+    const trunk = path.join(svnPath, 'trunk')
+    const url = baseSettings.url
+    const addCmd =
+      'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
+      'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
+
+    assert.deepStrictEqual(exec.calls, [
+      {
+        cmd: `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`,
+        opts: { maxBuffer: baseSettings.maxBuffer }
+      },
+      {
+        cmd: `rm -fr ${trunk}/*`,
+        opts: {}
+      },
+      {
+        cmd: addCmd,
+        opts: { cwd: trunk }
+      },
+      {
+        cmd: 'svn commit --force-interactive --username="jane" -m "Committing 1.0.0 to trunk"',
+        opts: { cwd: trunk }
+      },
+      {
+        cmd:
+          'svn copy ' +
+          url +
+          'trunk/ ' +
+          url +
+          'tags/1.0.0/ ' +
+          ' ' +
+          ' --force-interactive --username="jane" -m "Tagging 1.0.0"',
+        opts: { cwd: svnPath }
+      }
+    ])
+
+    assert.deepStrictEqual(fs.copies, [
+      { src: 'dist/', dest: path.join(svnPath, 'trunk') + path.sep }
+    ])
+  })
+
+  it('plugin with deployTrunk false only runs commitTag with correct cwd', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const settings = { ...baseSettings, deployTrunk: false }
+    const steps = createPluginSteps(settings, helpersWith(exec, fs))
+    let s = settings
+    for (const step of steps) {
+      s = await step(s)
+    }
+    assert.strictEqual(steps.length, 1)
+    assert.strictEqual(exec.calls.length, 1)
+    assert.strictEqual(
+      exec.calls[0].cmd,
+      'svn copy ' +
+        settings.url +
+        'trunk/ ' +
+        settings.url +
+        'tags/1.0.0/ ' +
+        ' ' +
+        ' --force-interactive --username="jane" -m "Tagging 1.0.0"'
+    )
+    assert.strictEqual(exec.calls[0].opts.cwd, svnPath)
+    assert.strictEqual(fs.copies.length, 0)
+  })
+
+  it('plugin with deployTag false omits tag step exec and cwd', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const settings = { ...baseSettings, deployTag: false }
+    const steps = createPluginSteps(settings, helpersWith(exec, fs))
+    let s = settings
+    for (const step of steps) {
+      s = await step(s)
+    }
+    const trunk = path.join(svnPath, 'trunk')
+    const url = settings.url
+    const addCmd =
+      'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
+      'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
+
+    assert.deepStrictEqual(exec.calls, [
+      {
+        cmd: `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`,
+        opts: { maxBuffer: settings.maxBuffer }
+      },
+      { cmd: `rm -fr ${trunk}/*`, opts: {} },
+      { cmd: addCmd, opts: { cwd: trunk } },
+      {
+        cmd: 'svn commit --force-interactive --username="jane" -m "Committing 1.0.0 to trunk"',
+        opts: { cwd: trunk }
+      }
+    ])
+  })
+
+  it('plugin with deployAssets true includes assets checkout, copy, svn add, commit with cwd', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const settings = { ...baseSettings, deployAssets: true }
+    const steps = createPluginSteps(settings, helpersWith(exec, fs))
+    let s = settings
+    for (const step of steps) {
+      s = await step(s)
+    }
+
+    const assets = path.join(svnPath, 'assets')
+    const addCmd =
+      'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
+      'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
+
+    assert.strictEqual(exec.calls.length, 9)
+    assert.strictEqual(exec.calls[6].cmd, `rm -fr ${assets}/*`)
+    assert.strictEqual(exec.calls[7].opts.cwd, assets)
+    assert.strictEqual(exec.calls[7].cmd, addCmd)
+    assert.strictEqual(exec.calls[8].opts.cwd, assets)
+    assert.strictEqual(
+      exec.calls[8].cmd,
+      'svn commit --force-interactive --username="jane" -m "Committing assets"'
+    )
+
+    assert.deepStrictEqual(fs.copies, [
+      { src: 'dist/', dest: path.join(svnPath, 'trunk') + path.sep },
+      { src: '.wordpress-org/', dest: path.join(svnPath, 'assets') + path.sep }
+    ])
+  })
+
+  it('first step receives settings and returns settings', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const steps = createPluginSteps(baseSettings, helpersWith(exec, fs))
+    const result = await steps[0](baseSettings)
+    assert.strictEqual(result, baseSettings)
   })
 
   it('stops pipeline when exec rejects (fail-fast)', async () => {
@@ -88,7 +205,8 @@ describe('createPluginSteps', () => {
       calls += 1
       throw new Error('simulated svn failure')
     }
-    const steps = createPluginSteps(baseSettings, { ...helpers, exec: failingExec })
+    const fs = createRecordingFs()
+    const steps = createPluginSteps(baseSettings, helpersWith(failingExec, fs))
     await assert.rejects(
       async () => {
         let s = baseSettings
@@ -103,8 +221,9 @@ describe('createPluginSteps', () => {
 })
 
 describe('createThemeSteps', () => {
+  const svnPath = path.join(os.tmpdir(), 'wp-deployer-test-theme')
   const baseSettings = {
-    svnPath: '/tmp/my-theme',
+    svnPath,
     url: 'https://themes.svn.wordpress.org/my-theme/',
     username: 'jane',
     buildDir: 'dist/',
@@ -113,32 +232,62 @@ describe('createThemeSteps', () => {
     maxBuffer: 200 * 1024
   }
 
+  function helpersWith (exec, fs) {
+    return { exec, fs, awk, noRunIfEmpty }
+  }
+
   it('returns an array of functions', () => {
-    const steps = createThemeSteps(baseSettings, helpers)
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const steps = createThemeSteps(baseSettings, helpersWith(exec, fs))
     assert(Array.isArray(steps))
     steps.forEach((step, i) => {
       assert.strictEqual(typeof step, 'function', `step ${i} should be a function`)
     })
   })
 
-  it('theme always has 7 steps', () => {
-    const steps = createThemeSteps(baseSettings, helpers)
-    assert.strictEqual(steps.length, 7)
-  })
-
-  it('first step receives settings and returns settings', async () => {
-    const steps = createThemeSteps(baseSettings, helpers)
-    const result = await steps[0](baseSettings)
-    assert.strictEqual(result, baseSettings)
-  })
-
-  it('all theme steps run in sequence and each returns settings', async () => {
-    const steps = createThemeSteps(baseSettings, helpers)
+  it('theme pipeline runs expected exec commands, cwd, and copySync destinations', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const steps = createThemeSteps(baseSettings, helpersWith(exec, fs))
     let s = baseSettings
     for (const step of steps) {
       s = await step(s)
-      assert.strictEqual(s, baseSettings, 'each step should pass through same settings reference')
     }
-    assert.strictEqual(s, baseSettings)
+
+    const verDir = path.join(svnPath, baseSettings.newVersion)
+    const addCmd =
+      'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
+      'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
+
+    assert.deepStrictEqual(exec.calls, [
+      { cmd: `rm -fr ${svnPath}`, opts: {} },
+      {
+        cmd: `svn co --force-interactive --username="jane" ${baseSettings.url}/ ${svnPath}`,
+        opts: { maxBuffer: baseSettings.maxBuffer }
+      },
+      {
+        cmd: 'svn copy 1.0.0 2.0.0',
+        opts: { cwd: svnPath }
+      },
+      { cmd: `rm -fr ${verDir}/*`, opts: {} },
+      { cmd: addCmd, opts: { cwd: verDir } },
+      {
+        cmd: 'svn commit --force-interactive --username="jane" -m "Committing theme 2.0.0"',
+        opts: { cwd: verDir }
+      }
+    ])
+
+    assert.deepStrictEqual(fs.copies, [
+      { src: 'dist/', dest: path.join(svnPath, '2.0.0') + path.sep }
+    ])
+  })
+
+  it('first step receives settings and returns settings', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const steps = createThemeSteps(baseSettings, helpersWith(exec, fs))
+    const result = await steps[0](baseSettings)
+    assert.strictEqual(result, baseSettings)
   })
 })

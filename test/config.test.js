@@ -1,3 +1,5 @@
+import path from 'node:path'
+import os from 'node:os'
 import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { getDefaults, resolveSettings } from '../lib/config.js'
@@ -14,8 +16,8 @@ describe('getDefaults', () => {
     assert.strictEqual(d.deployTag, true)
     assert.strictEqual(d.deployAssets, false)
     assert.strictEqual(d.username, '')
-    assert.strictEqual(d.url, '')
-    assert.strictEqual(d.tmpDir, '/tmp/')
+    assert.ok(!Object.prototype.hasOwnProperty.call(d, 'url'))
+    assert.strictEqual(d.tmpDir, os.tmpdir())
     assert.strictEqual(d.maxBuffer, 200 * 1024)
   })
 
@@ -67,30 +69,29 @@ describe('resolveSettings', () => {
     assert.strictEqual(settings.url, 'https://themes.svn.wordpress.org/my-plugin/')
   })
 
-  it('keeps custom url when provided', () => {
-    const custom = 'https://custom.svn.example.com/repo/'
-    const pkg = { ...basePkg, wpDeployer: { username: 'jane', url: custom } }
-    const { settings } = resolveSettings(pkg)
-    assert.strictEqual(settings.url, custom)
-  })
-
-  it('returns invalid_svn_url when custom url is not a valid absolute URL', () => {
-    const pkg = { ...basePkg, wpDeployer: { username: 'jane', url: 'not-a-valid-url' } }
-    const { error, errorMessage } = resolveSettings(pkg)
-    assert.strictEqual(error, 'invalid_svn_url')
-    assert.ok(errorMessage && errorMessage.length > 0)
+  it('ignores legacy wpDeployer.url (only wordpress.org SVN is supported)', () => {
+    const pkg = {
+      ...basePkg,
+      wpDeployer: {
+        username: 'jane',
+        url: 'https://custom.svn.example.com/repo/'
+      }
+    }
+    const { settings, error } = resolveSettings(pkg)
+    assert.strictEqual(error, null)
+    assert.strictEqual(settings.url, 'https://plugins.svn.wordpress.org/my-plugin/')
   })
 
   it('normalizes svnPath from tmpDir + slug (tmpDir with trailing slash)', () => {
     const pkg = { ...basePkg, wpDeployer: { username: 'jane', tmpDir: '/tmp/' } }
     const { settings } = resolveSettings(pkg)
-    assert.strictEqual(settings.svnPath, '/tmp/my-plugin')
+    assert.strictEqual(settings.svnPath, path.join('/tmp', 'my-plugin'))
   })
 
   it('normalizes svnPath when tmpDir has no trailing slash', () => {
     const pkg = { ...basePkg, wpDeployer: { username: 'jane', tmpDir: '/var/cache' } }
     const { settings } = resolveSettings(pkg)
-    assert.strictEqual(settings.svnPath, '/var/cache/my-plugin')
+    assert.strictEqual(settings.svnPath, path.join('/var/cache', 'my-plugin'))
   })
 
   it('normalizes buildDir with trailing slash', () => {
@@ -139,7 +140,7 @@ describe('resolveSettings', () => {
       'https://plugins.svn.wordpress.org/custom-slug/',
       'default plugin url must use slug, not pkg.name'
     )
-    assert.strictEqual(settings.svnPath, '/tmp/custom-slug')
+    assert.strictEqual(settings.svnPath, path.join(os.tmpdir(), 'custom-slug'))
     assert.strictEqual(settings.mainFile, 'custom-slug.php')
   })
 
@@ -152,7 +153,7 @@ describe('resolveSettings', () => {
     const { settings, error } = resolveSettings(pkg)
     assert.strictEqual(error, null)
     assert.strictEqual(settings.url, 'https://plugins.svn.wordpress.org/real-wp-slug/')
-    assert.strictEqual(settings.svnPath, '/tmp/real-wp-slug')
+    assert.strictEqual(settings.svnPath, path.join(os.tmpdir(), 'real-wp-slug'))
     assert.strictEqual(settings.mainFile, 'real-wp-slug.php')
   })
 
@@ -170,8 +171,14 @@ describe('resolveSettings', () => {
     const { settings, error } = resolveSettings(pkg)
     assert.strictEqual(error, null)
     assert.strictEqual(settings.url, 'https://themes.svn.wordpress.org/theme-slug-on-org/')
-    assert.strictEqual(settings.svnPath, '/tmp/theme-slug-on-org')
+    assert.strictEqual(settings.svnPath, path.join(os.tmpdir(), 'theme-slug-on-org'))
     assert.strictEqual(settings.mainFile, 'theme-slug-on-org.php')
+  })
+
+  it('defaults svnPath to os.tmpdir + slug when tmpDir not set', () => {
+    const pkg = { ...basePkg, wpDeployer: { username: 'jane' } }
+    const { settings } = resolveSettings(pkg)
+    assert.strictEqual(settings.svnPath, path.join(os.tmpdir(), 'my-plugin'))
   })
 
   it('keeps explicit mainFile when wpDeployer sets it (even if slug differs)', () => {
