@@ -57,6 +57,25 @@ describe('resolveSettings', () => {
     assert.strictEqual(settings.username, 'jane')
   })
 
+  it('returns invalid_username when username contains disallowed characters', () => {
+    const withSpace = resolveSettings({ ...basePkg, wpDeployer: { username: 'jane doe' } })
+    assert.strictEqual(withSpace.error, 'invalid_username')
+    assert.ok(withSpace.errorMessage && /letters, numbers, hyphens, and underscores/.test(withSpace.errorMessage))
+
+    const withQuote = resolveSettings({ ...basePkg, wpDeployer: { username: 'jane"doe' } })
+    assert.strictEqual(withQuote.error, 'invalid_username')
+
+    const withSemicolon = resolveSettings({ ...basePkg, wpDeployer: { username: 'jane;rm' } })
+    assert.strictEqual(withSemicolon.error, 'invalid_username')
+  })
+
+  it('accepts username with only alphanumeric, hyphen, and underscore', () => {
+    assert.strictEqual(resolveSettings({ ...basePkg, wpDeployer: { username: 'jane' } }).error, null)
+    assert.strictEqual(resolveSettings({ ...basePkg, wpDeployer: { username: 'jane_doe' } }).error, null)
+    assert.strictEqual(resolveSettings({ ...basePkg, wpDeployer: { username: 'jane-doe-99' } }).error, null)
+    assert.strictEqual(resolveSettings({ ...basePkg, wpDeployer: { username: 'User123' } }).error, null)
+  })
+
   it('defaults url to plugins.svn.wordpress.org for plugin', () => {
     const pkg = { ...basePkg, wpDeployer: { username: 'jane' } }
     const { settings } = resolveSettings(pkg)

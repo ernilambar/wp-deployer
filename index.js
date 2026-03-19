@@ -81,6 +81,10 @@ const wpDeployer = async () => {
     console.error(chalk.red('Username is required.'))
     return EXIT_CONFIG
   }
+  if (error === 'invalid_username') {
+    console.error(chalk.red(errorMessage || 'Invalid username.'))
+    return EXIT_CONFIG
+  }
   if (error === 'theme_earlier_version_required') {
     console.error(chalk.red('For repoType theme, earlierVersion is required.'))
     return EXIT_CONFIG
