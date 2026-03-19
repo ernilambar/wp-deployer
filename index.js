@@ -10,8 +10,11 @@
  * Exit codes: 0 success, 1 config/validation/preflight, 2 deploy failure, 130 SIGINT.
  */
 
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import fs from 'fs-extra'
 import chalk from 'chalk'
+import minimist from 'minimist'
 import { exec as execCb } from 'child_process'
 import { promisify } from 'util'
 import { resolveSettings } from './lib/config.js'
@@ -22,7 +25,41 @@ import { EXIT_SUCCESS, EXIT_CONFIG, EXIT_RUNTIME, EXIT_SIGINT } from './lib/exit
 
 const exec = promisify(execCb)
 
-const pkg = fs.readJsonSync('./package.json')
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const argv = minimist(process.argv.slice(2), {
+  boolean: ['help', 'version'],
+  alias: { h: 'help', v: 'version' }
+})
+
+function printHelp () {
+  console.log(`Usage: wp-deployer [options]
+
+Deploy a WordPress plugin or theme to WordPress.org SVN using wpDeployer in package.json.
+
+Options:
+  --help, -h     Show this message
+  --version, -v  Print wp-deployer version
+`)
+}
+
+function printVersion () {
+  const selfPkg = fs.readJsonSync(path.join(__dirname, 'package.json'))
+  console.log(selfPkg.version)
+}
+
+if (argv.help) {
+  printHelp()
+  process.exit(EXIT_SUCCESS)
+}
+
+if (argv.version) {
+  printVersion()
+  process.exit(EXIT_SUCCESS)
+}
+
+const pkgPath = path.join(process.cwd(), 'package.json')
+const pkg = fs.readJsonSync(pkgPath)
 
 const awk = process.platform === 'win32' ? 'gawk' : 'awk'
 const noRunIfEmpty = process.platform !== 'darwin' ? '--no-run-if-empty ' : ''

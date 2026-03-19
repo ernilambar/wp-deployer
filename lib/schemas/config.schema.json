@@ -5,7 +5,6 @@
   "description": "Schema for wp-deployer runtime configuration.",
   "type": "object",
   "required": [
-    "url",
     "slug",
     "mainFile",
     "username",
@@ -22,7 +21,6 @@
     "svnPath"
   ],
   "properties": {
-    "url": { "type": "string" },
     "slug": { "type": "string", "minLength": 1 },
     "mainFile": { "type": "string", "minLength": 1 },
     "username": { "type": "string", "minLength": 1 },
