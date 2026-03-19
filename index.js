@@ -28,7 +28,7 @@ const exec = promisify(execCb)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const argv = minimist(process.argv.slice(2), {
-  boolean: ['help', 'version', 'assets'],
+  boolean: ['help', 'version', 'assets', 'dry-run'],
   alias: { h: 'help', v: 'version' }
 })
 
@@ -41,6 +41,7 @@ Options:
   --help, -h        Show this message
   --version, -v     Print wp-deployer version
   --assets          Deploy only the assets directory (plugin only; skips trunk and tag)
+  --dry-run         Prepare working copy and local SVN changes only; no commit or remote tag copy
 `)
 }
 
@@ -71,6 +72,10 @@ process.on('SIGINT', () => {
 })
 
 const wpDeployer = async () => {
+  const dryRun = Boolean(argv['dry-run'])
+  if (dryRun) {
+    console.log(chalk.yellow('Dry run: SVN checkout and local prep will run; commits and remote operations are skipped.'))
+  }
   console.log(chalk.cyan('Processing...'))
 
   let { settings, error, errorMessage } = resolveSettings(pkg)
@@ -130,7 +135,7 @@ const wpDeployer = async () => {
     throw e
   }
 
-  const helpers = { exec, fs, awk, noRunIfEmpty }
+  const helpers = { exec, fs, awk, noRunIfEmpty, dryRun }
   const steps = settings.repoType === 'plugin'
     ? createPluginSteps(settings, helpers)
     : createThemeSteps(settings, helpers)
@@ -140,7 +145,11 @@ const wpDeployer = async () => {
     for (const step of steps) {
       s = await step(s)
     }
-    console.log(chalk.green('Finished successfully.'))
+    if (dryRun) {
+      console.log(chalk.green('Dry run finished — working copy prepared; no changes were pushed to WordPress.org.'))
+    } else {
+      console.log(chalk.green('Finished successfully.'))
+    }
     return EXIT_SUCCESS
   } catch (err) {
     console.error(chalk.red(err?.message || err))

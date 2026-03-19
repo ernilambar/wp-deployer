@@ -24,9 +24,12 @@ CLI sub-commands:
 npx wp-deployer --help
 npx wp-deployer --version
 npx wp-deployer --assets
+npx wp-deployer --dry-run
 ```
 
 Use `--assets` when you only want to push the assets directory (e.g. screenshots, banner) to WordPress.org and skip trunk and tag deployment.
+
+Use `--dry-run` to run checkout, clear/copy, and local `svn add` / `svn delete` preparation only. No `svn commit` or remote tag copy runs, so nothing is pushed—useful to inspect the working copy before a real deploy.
 
 Or add a script to `package.json` and run it:
 

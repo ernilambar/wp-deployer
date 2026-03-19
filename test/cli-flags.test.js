@@ -41,4 +41,10 @@ describe('CLI flags', () => {
     assert.strictEqual(r.status, 0, r.stderr)
     assert.match(r.stdout, /--assets\b/)
   })
+
+  it('--help documents --dry-run', () => {
+    const r = spawnSync(process.execPath, [indexJs, '--help'], { encoding: 'utf8' })
+    assert.strictEqual(r.status, 0, r.stderr)
+    assert.match(r.stdout, /--dry-run\b/)
+  })
 })

@@ -56,6 +56,35 @@ describe('createPluginSteps', () => {
     })
   })
 
+  it('plugin dry-run omits commit and remote tag; still checks out, clears, adds', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const steps = createPluginSteps(baseSettings, { exec, fs, awk, noRunIfEmpty, dryRun: true })
+    let s = baseSettings
+    for (const step of steps) {
+      s = await step(s)
+    }
+
+    const trunk = path.join(svnPath, 'trunk')
+    const url = baseSettings.url
+    const addCmd =
+      'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
+      'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
+
+    assert.deepStrictEqual(exec.calls, [
+      {
+        cmd: `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`,
+        opts: { maxBuffer: baseSettings.maxBuffer }
+      },
+      { cmd: `rm -fr ${trunk}/*`, opts: {} },
+      { cmd: addCmd, opts: { cwd: trunk } }
+    ])
+
+    assert.deepStrictEqual(fs.copies, [
+      { src: 'dist/', dest: path.join(svnPath, 'trunk') + path.sep }
+    ])
+  })
+
   it('full plugin (deployTrunk + deployTag) runs expected exec commands and cwd', async () => {
     const fs = createRecordingFs()
     const exec = createRecordingExec()
@@ -133,6 +162,39 @@ describe('createPluginSteps', () => {
         opts: { cwd: trunk }
       }
     ])
+  })
+
+  it('plugin with deployAssets and dryRun skips trunk, tag, and assets commits', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const settings = { ...baseSettings, deployAssets: true }
+    const steps = createPluginSteps(settings, { exec, fs, awk, noRunIfEmpty, dryRun: true })
+    let s = settings
+    for (const step of steps) {
+      s = await step(s)
+    }
+
+    const trunk = path.join(svnPath, 'trunk')
+    const assets = path.join(svnPath, 'assets')
+    const url = settings.url
+    const addCmd =
+      'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
+      'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
+
+    assert.strictEqual(exec.calls.length, 6)
+    assert.strictEqual(exec.calls[0].cmd, `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`)
+    assert.strictEqual(exec.calls[1].cmd, `rm -fr ${trunk}/*`)
+    assert.strictEqual(exec.calls[2].cmd, addCmd)
+    assert.strictEqual(exec.calls[2].opts.cwd, trunk)
+    assert.strictEqual(exec.calls[3].cmd, `svn co --force-interactive --username="jane" ${url}assets/ ${assets}`)
+    assert.strictEqual(exec.calls[4].cmd, `rm -fr ${assets}/*`)
+    assert.strictEqual(exec.calls[5].cmd, addCmd)
+    assert.strictEqual(exec.calls[5].opts.cwd, assets)
+
+    const noCommit = exec.calls.every((c) => !c.cmd.includes('svn commit'))
+    assert.strictEqual(noCommit, true)
+    const noRemoteTag = exec.calls.every((c) => !c.cmd.includes('tags/'))
+    assert.strictEqual(noRemoteTag, true)
   })
 
   it('plugin with deployAssets true includes assets checkout, copy, svn add, commit with cwd', async () => {
@@ -219,6 +281,39 @@ describe('createThemeSteps', () => {
     steps.forEach((step, i) => {
       assert.strictEqual(typeof step, 'function', `step ${i} should be a function`)
     })
+  })
+
+  it('theme dry-run omits final svn commit', async () => {
+    const fs = createRecordingFs()
+    const exec = createRecordingExec()
+    const steps = createThemeSteps(baseSettings, { exec, fs, awk, noRunIfEmpty, dryRun: true })
+    let s = baseSettings
+    for (const step of steps) {
+      s = await step(s)
+    }
+
+    const verDir = path.join(svnPath, baseSettings.newVersion)
+    const addCmd =
+      'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
+      'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
+
+    assert.deepStrictEqual(exec.calls, [
+      { cmd: `rm -fr ${svnPath}`, opts: {} },
+      {
+        cmd: `svn co --force-interactive --username="jane" ${baseSettings.url}/ ${svnPath}`,
+        opts: { maxBuffer: baseSettings.maxBuffer }
+      },
+      {
+        cmd: 'svn copy 1.0.0 2.0.0',
+        opts: { cwd: svnPath }
+      },
+      { cmd: `rm -fr ${verDir}/*`, opts: {} },
+      { cmd: addCmd, opts: { cwd: verDir } }
+    ])
+
+    assert.deepStrictEqual(fs.copies, [
+      { src: 'dist/', dest: path.join(svnPath, '2.0.0') + path.sep }
+    ])
   })
 
   it('theme pipeline runs expected exec commands, cwd, and copySync destinations', async () => {
