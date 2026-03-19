@@ -2,10 +2,6 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert'
 import { createPluginSteps, createThemeSteps } from '../lib/steps.js'
 
-const noopChalk = {
-  red: (s) => s
-}
-
 function mockExec () {
   return function (cmd, opts) {
     return Promise.resolve({ stdout: '', stderr: '' })
@@ -20,7 +16,6 @@ function mockFs () {
 
 const helpers = {
   exec: mockExec(),
-  chalk: noopChalk,
   fs: mockFs(),
   awk: 'awk',
   noRunIfEmpty: ''
@@ -85,6 +80,25 @@ describe('createPluginSteps', () => {
       assert.strictEqual(s, baseSettings, 'each step should pass through same settings reference')
     }
     assert.strictEqual(s, baseSettings)
+  })
+
+  it('stops pipeline when exec rejects (fail-fast)', async () => {
+    let calls = 0
+    const failingExec = async () => {
+      calls += 1
+      throw new Error('simulated svn failure')
+    }
+    const steps = createPluginSteps(baseSettings, { ...helpers, exec: failingExec })
+    await assert.rejects(
+      async () => {
+        let s = baseSettings
+        for (const step of steps) {
+          s = await step(s)
+        }
+      },
+      /simulated svn failure/
+    )
+    assert.strictEqual(calls, 1)
   })
 })
 
