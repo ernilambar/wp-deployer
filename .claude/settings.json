@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat *)",
+      "Bash(composer install)",
+      "Bash(composer run *)",
+      "Bash(find *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git status)",
+      "Bash(grep *)",
+      "Bash(head *)",
+      "Bash(ls)",
+      "Bash(ls *)",
+      "Bash(npm install)",
+      "Bash(npm run *)",
+      "Bash(php -l *)",
+      "Bash(pnpm install)",
+      "Bash(pnpm run *)",
+      "Bash(rtk *)",
+      "Bash(sort *)",
+      "Bash(tail *)",
+      "Bash(uniq *)",
+      "Bash(wc *)",
+      "Bash(which *)"
+    ],
+    "deny": [
+      "Bash(chmod *)",
+      "Bash(git checkout -- *)",
+      "Bash(git push *)",
+      "Bash(git reset *)",
+      "Bash(git stash drop *)",
+      "Bash(rm -rf *)",
+      "Bash(truncate *)"
+    ]
+  }
+}
