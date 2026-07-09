@@ -72,6 +72,7 @@ describe('createPluginSteps', () => {
       'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
 
     assert.deepStrictEqual(exec.calls, [
+      { cmd: `rm -fr ${trunk}`, opts: {} },
       {
         cmd: `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`,
         opts: { maxBuffer: baseSettings.maxBuffer }
@@ -101,6 +102,7 @@ describe('createPluginSteps', () => {
       'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
 
     assert.deepStrictEqual(exec.calls, [
+      { cmd: `rm -fr ${trunk}`, opts: {} },
       {
         cmd: `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`,
         opts: { maxBuffer: baseSettings.maxBuffer }
@@ -151,6 +153,7 @@ describe('createPluginSteps', () => {
       'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
 
     assert.deepStrictEqual(exec.calls, [
+      { cmd: `rm -fr ${trunk}`, opts: {} },
       {
         cmd: `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`,
         opts: { maxBuffer: settings.maxBuffer }
@@ -181,15 +184,17 @@ describe('createPluginSteps', () => {
       'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
       'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
 
-    assert.strictEqual(exec.calls.length, 6)
-    assert.strictEqual(exec.calls[0].cmd, `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`)
-    assert.strictEqual(exec.calls[1].cmd, `rm -fr ${trunk}/*`)
-    assert.strictEqual(exec.calls[2].cmd, addCmd)
-    assert.strictEqual(exec.calls[2].opts.cwd, trunk)
-    assert.strictEqual(exec.calls[3].cmd, `svn co --force-interactive --username="jane" ${url}assets/ ${assets}`)
-    assert.strictEqual(exec.calls[4].cmd, `rm -fr ${assets}/*`)
-    assert.strictEqual(exec.calls[5].cmd, addCmd)
-    assert.strictEqual(exec.calls[5].opts.cwd, assets)
+    assert.strictEqual(exec.calls.length, 8)
+    assert.strictEqual(exec.calls[0].cmd, `rm -fr ${trunk}`)
+    assert.strictEqual(exec.calls[1].cmd, `svn co --force-interactive --username="jane" ${url}trunk/ ${trunk}`)
+    assert.strictEqual(exec.calls[2].cmd, `rm -fr ${trunk}/*`)
+    assert.strictEqual(exec.calls[3].cmd, addCmd)
+    assert.strictEqual(exec.calls[3].opts.cwd, trunk)
+    assert.strictEqual(exec.calls[4].cmd, `rm -fr ${assets}`)
+    assert.strictEqual(exec.calls[5].cmd, `svn co --force-interactive --username="jane" ${url}assets/ ${assets}`)
+    assert.strictEqual(exec.calls[6].cmd, `rm -fr ${assets}/*`)
+    assert.strictEqual(exec.calls[7].cmd, addCmd)
+    assert.strictEqual(exec.calls[7].opts.cwd, assets)
 
     const noCommit = exec.calls.every((c) => !c.cmd.includes('svn commit'))
     assert.strictEqual(noCommit, true)
@@ -212,13 +217,13 @@ describe('createPluginSteps', () => {
       'svn resolve --accept working -R . && svn status |awk \'/^[?]/{print $2}\' | xargs svn add;' +
       'svn status | awk \'/^[!]/{print $2}\' | xargs svn delete;'
 
-    assert.strictEqual(exec.calls.length, 9)
-    assert.strictEqual(exec.calls[6].cmd, `rm -fr ${assets}/*`)
-    assert.strictEqual(exec.calls[7].opts.cwd, assets)
-    assert.strictEqual(exec.calls[7].cmd, addCmd)
-    assert.strictEqual(exec.calls[8].opts.cwd, assets)
+    assert.strictEqual(exec.calls.length, 11)
+    assert.strictEqual(exec.calls[8].cmd, `rm -fr ${assets}/*`)
+    assert.strictEqual(exec.calls[9].opts.cwd, assets)
+    assert.strictEqual(exec.calls[9].cmd, addCmd)
+    assert.strictEqual(exec.calls[10].opts.cwd, assets)
     assert.strictEqual(
-      exec.calls[8].cmd,
+      exec.calls[10].cmd,
       'svn commit --force-interactive --username="jane" -m "Committing assets"'
     )
 
