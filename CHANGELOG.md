@@ -1,5 +1,9 @@
 # wp-deployer Changelog
 
+## 2.1.0 - 2026-08-05
+- Added: standalone `wp-deployer.json` config file support
+- Added: `--config <path>` flag to use a custom config file
+
 ## 2.0.1 - 2026-07-09
 - Fixed: clean SVN checkout directory before each run
 

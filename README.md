@@ -12,7 +12,7 @@ npm install --save-dev wp-deployer
 
 ## Usage
 
-Run from your project root (the directory that contains `package.json` with your `wpDeployer` config):
+Run from your project root (the directory that contains your config — see [Config file](#config-file)):
 
 ```sh
 npx wp-deployer
@@ -25,6 +25,7 @@ npx wp-deployer --help
 npx wp-deployer --version
 npx wp-deployer --assets
 npx wp-deployer --dry-run
+npx wp-deployer --config path/to/config.json
 ```
 
 Use `--assets` when you only want to push the assets directory (e.g. screenshots, banner) to WordPress.org and skip trunk and tag deployment.
@@ -36,6 +37,16 @@ Or add a script to `package.json` and run it:
 ```sh
 npm run wpdeploy
 ```
+
+## Config file
+
+Settings can come from one of three places:
+
+* **`wpDeployer`** key in `package.json`.
+* **`wp-deployer.json`** in the project root — same shape as the `wpDeployer` object, as a standalone file.
+* **`--config <path>`** — an explicit path to a config file, same shape.
+
+`package.json#wpDeployer` and `wp-deployer.json` are **mutually exclusive**. If both exist, wp-deployer exits with an error rather than guessing which one to use — remove one. `--config` bypasses both and is used as-is.
 
 ## SVN authentication
 

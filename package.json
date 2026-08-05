@@ -1,6 +1,6 @@
 {
   "name": "wp-deployer",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Deploy WordPress plugin and theme to the WordPress.org repo.",
   "keywords": [
     "WordPress",
