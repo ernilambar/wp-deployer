@@ -40,10 +40,18 @@ npm run wpdeploy
 
 ## Config file
 
-Settings can come from one of three places:
+Add **`wp-deployer.json`** in your project root.
 
-* **`wpDeployer`** key in `package.json`.
-* **`wp-deployer.json`** in the project root — same shape as the `wpDeployer` object, as a standalone file.
+```json
+{
+  "username": "yourusername",
+  "buildDir": "dist"
+}
+```
+
+Settings can also come from:
+
+* **`wpDeployer`** key in `package.json` — supported for convenience, but `wp-deployer.json` is preferred.
 * **`--config <path>`** — an explicit path to a config file, same shape.
 
 `package.json#wpDeployer` and `wp-deployer.json` are **mutually exclusive**. If both exist, wp-deployer exits with an error rather than guessing which one to use — remove one. `--config` bypasses both and is used as-is.
@@ -76,15 +84,18 @@ On a **shared** computer, review SVN’s credential storage and clear saved auth
 
 ### Deploy plugin
 
+In `wp-deployer.json`:
+
+```json
+{
+  "username": "yourusername",
+  "buildDir": "dist"
+}
+```
+
 In `package.json`:
 
 ```json
-...
-"wpDeployer": {
-  "username": "yourusername",
-  "buildDir": "dist"
-},
-...
 "scripts": {
   ...
   "wpdeploy": "wp-deployer"
@@ -93,17 +104,20 @@ In `package.json`:
 
 ### Deploy theme
 
+In `wp-deployer.json`:
+
+```json
+{
+  "repoType": "theme",
+  "earlierVersion": "1.0.2",
+  "username": "yourusername",
+  "buildDir": "dist"
+}
+```
+
 In `package.json`:
 
 ```json
-...
-"wpDeployer": {
-  "repoType": "theme", // This is required
-  "earlierVersion": "1.0.2", // Required; Keep last released version
-  "username": "yourusername",
-  "buildDir": "dist"
-},
-...
 "scripts": {
   ...
   "wpdeploy": "wp-deployer"
