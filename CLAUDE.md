@@ -25,11 +25,12 @@ Every task must end with:
 
 ### Pipeline flow
 
-1. `index.js` — Entry point. Parses CLI flags (`--assets`, `--dry-run`), reads `package.json` from CWD, calls `resolveSettings()`, then `runPreflightSync()`, then runs steps in sequence. Errors from any step abort the pipeline.
-2. `lib/config.js` — Resolves the `wpDeployer` key from the project's `package.json`, applies defaults, normalises paths, derives the SVN URL, and validates via `lib/config-schema.js`. Returns `{ settings, error, errorMessage }` — never throws.
-3. `lib/config-schema.js` — Validates merged settings against `lib/schemas/config.schema.json` using Ajv. Maps AJV errors to stable error codes consumed by `index.js`.
-4. `lib/preflight.js` — Synchronous environment checks: `svn` and `awk` on PATH, build/assets dirs exist and are non-empty. Throws `DeployError` on failure.
-5. `lib/steps.js` — Step factories. `createPluginSteps()` and `createThemeSteps()` each return an array of `async (settings) => settings` functions. Steps are composed, not inherited. Each step receives the live settings object and returns it (possibly mutated). `dryRun` skips commit steps.
+1. `index.js` — Entry point. Parses CLI flags (`--assets`, `--dry-run`, `--config`), reads `package.json` from CWD, calls `loadConfigSource()` then `resolveSettings()`, then `runPreflightSync()`, then runs steps in sequence. Errors from any step abort the pipeline.
+2. `lib/config-source.js` — Locates the wpDeployer settings object: `package.json#wpDeployer`, a standalone `wp-deployer.json` in CWD, or an explicit `--config` path. The first two are mutually exclusive — if both exist, returns an error instead of picking one. `--config` bypasses both. Returns `{ wpDeployerConfig, error, errorMessage }` — never throws.
+3. `lib/config.js` — `resolveSettings(pkg, wpDeployerOverride?)` merges the wpDeployer config (from `pkg.wpDeployer` by default, or the override from `loadConfigSource()`) with defaults, normalises paths, derives the SVN URL, and validates via `lib/config-schema.js`. Returns `{ settings, error, errorMessage }` — never throws.
+4. `lib/config-schema.js` — Validates merged settings against `lib/schemas/config.schema.json` using Ajv. Maps AJV errors to stable error codes consumed by `index.js`.
+5. `lib/preflight.js` — Synchronous environment checks: `svn` and `awk` on PATH, build/assets dirs exist and are non-empty. Throws `DeployError` on failure.
+6. `lib/steps.js` — Step factories. `createPluginSteps()` and `createThemeSteps()` each return an array of `async (settings) => settings` functions. Steps are composed, not inherited. Each step receives the live settings object and returns it (possibly mutated). `dryRun` skips commit steps.
 
 ### Plugin vs theme deploy
 

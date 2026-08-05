@@ -4,7 +4,9 @@
  * wp-deployer
  *
  * Deploys a WordPress plugin or theme to the WordPress.org SVN repo.
- * Config is read from package.json under the "wpDeployer" key.
+ * Config is read from package.json under the "wpDeployer" key, a standalone
+ * wp-deployer.json (mutually exclusive with the package.json key), or an
+ * explicit --config path.
  * Run from the project root (where package.json and wpDeployer config live).
  *
  * Exit codes: 0 success, 1 config/validation/preflight, 2 deploy failure, 130 SIGINT.
@@ -18,6 +20,7 @@ import minimist from 'minimist'
 import { exec as execCb } from 'child_process'
 import { promisify } from 'util'
 import { resolveSettings } from './lib/config.js'
+import { loadConfigSource } from './lib/config-source.js'
 import { createPluginSteps, createThemeSteps } from './lib/steps.js'
 import { runPreflightSync } from './lib/preflight.js'
 import { DeployError } from './lib/deploy-error.js'
@@ -29,19 +32,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const argv = minimist(process.argv.slice(2), {
   boolean: ['help', 'version', 'assets', 'dry-run'],
+  string: ['config'],
   alias: { h: 'help', v: 'version' }
 })
 
 function printHelp () {
   console.log(`Usage: wp-deployer [options]
 
-Deploy a WordPress plugin or theme to WordPress.org SVN using wpDeployer in package.json.
+Deploy a WordPress plugin or theme to WordPress.org SVN using wpDeployer config
+from package.json, wp-deployer.json, or --config.
 
 Options:
   --help, -h        Show this message
   --version, -v     Print wp-deployer version
   --assets          Deploy only the assets directory (plugin only; skips trunk and tag)
   --dry-run         Prepare working copy and local SVN changes only; no commit or remote tag copy
+  --config <path>   Use this config file instead of package.json / wp-deployer.json
 `)
 }
 
@@ -78,7 +84,14 @@ const wpDeployer = async () => {
   }
   console.log(chalk.cyan('Processing...'))
 
-  let { settings, error, errorMessage } = resolveSettings(pkg)
+  const configPath = argv.config
+  const sourceResult = loadConfigSource(pkg, { fs, cwd: process.cwd(), configPath })
+  if (sourceResult.error) {
+    console.error(chalk.red(sourceResult.errorMessage))
+    return EXIT_CONFIG
+  }
+
+  let { settings, error, errorMessage } = resolveSettings(pkg, sourceResult.wpDeployerConfig)
   if (error === 'invalid_slug') {
     console.error(chalk.red(`Invalid slug: ${errorMessage}`))
     return EXIT_CONFIG
