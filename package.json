@@ -24,8 +24,7 @@
   "files": [
     "CHANGELOG.md",
     "index.js",
-    "lib",
-    "README.md"
+    "lib"
   ],
   "scripts": {
     "lint": "eslint",
