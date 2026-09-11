@@ -28,9 +28,9 @@
     "README.md"
   ],
   "scripts": {
-    "lint": "standard",
-    "lint:fix": "standard --fix",
-    "test": "node --test 'test/**/*.test.js'"
+    "lint": "eslint",
+    "format": "eslint --fix",
+    "test": "node --test"
   },
   "dependencies": {
     "ajv": "^8.20.0",
@@ -39,7 +39,8 @@
     "minimist": "^1.2.8"
   },
   "devDependencies": {
-    "standard": "^17.1.2"
+    "eslint": "^9.39.5",
+    "neostandard": "^0.13.0"
   },
   "engines": {
     "node": ">=22.0.0"
